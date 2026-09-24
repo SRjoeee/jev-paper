@@ -149,6 +149,21 @@ describe('PageUi', () => {
     expect($('.tip')).toBeNull()
   })
 
+  it('setPointer writes a document-level style sheet, never the paper\'s own <html>', () => {
+    const { ui } = setup()
+    expect(document.documentElement.getAttribute('style')).toBeNull()
+    ui.setPointer(true)
+    const style = document.head.querySelector('style[data-jevpaper="cursor"]')!
+    expect(style.textContent).toBe(':root { cursor: pointer; }')
+    expect(document.documentElement.getAttribute('style')).toBeNull()
+    ui.setPointer(false)
+    expect(style.textContent).toBe('')
+    expect(document.documentElement.getAttribute('style')).toBeNull()
+    ui.destroy()
+    expect(document.head.querySelector('style[data-jevpaper="cursor"]')).toBeNull()
+    expect(document.documentElement.getAttribute('style')).toBeNull()
+  })
+
   it('removes both hosts on destroy', () => {
     const { ui } = setup()
     ui.destroy()

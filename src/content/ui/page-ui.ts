@@ -43,6 +43,7 @@ export class PageUi {
   private bubble: HTMLDivElement
   private tipEl: HTMLElement | null = null
   private overTip = false
+  private cursorStyle: HTMLStyleElement | null = null
   private anchorsHost: HTMLElement
   private anchorsRoot: ShadowRoot
   private anchors = new Map<number, HTMLButtonElement>()
@@ -196,6 +197,20 @@ export class PageUi {
   }
 
   /**
+   * The pointer cursor for a hovered mark, kept off the paper's own `<html>` (spec §5.3: the paper's DOM is
+   * never modified) — a document-level style sheet in `<head>` instead, alongside the band layer's own
+   * `style[data-jevpaper="bands"]`. `<head>` is never watched by the band layer's mutation observer.
+   */
+  setPointer(on: boolean): void {
+    if (!this.cursorStyle) {
+      this.cursorStyle = this.doc.createElement('style')
+      this.cursorStyle.dataset.jevpaper = 'cursor'
+      this.doc.head.append(this.cursorStyle)
+    }
+    this.cursorStyle.textContent = on ? ':root { cursor: pointer; }' : ''
+  }
+
+  /**
    * Ruling 18: updates buttons in place, keyed by `index`, instead of replacing them — a relayout (resize, font
    * load, a mutation the band layer watches) calls this again with fresh geometry, and a focused anchor must keep
    * focus through it (no blur, so no spurious `anchorFocus(null)`).
@@ -235,6 +250,8 @@ export class PageUi {
     this.host.remove()
     this.anchorsHost.remove()
     this.anchors.clear()
+    this.cursorStyle?.remove()
+    this.cursorStyle = null
   }
 
   private isOpen(): boolean {

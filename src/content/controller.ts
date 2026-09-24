@@ -37,6 +37,8 @@ export interface UiPort {
   isOverTip(): boolean
   setAnchors(anchors: Anchor[]): void
   focusAnchor(index: number): void
+  /** The pointer cursor for a hovered mark — never written onto the paper's own `<html>` (spec §5.3) */
+  setPointer(on: boolean): void
   destroy(): void
 }
 
@@ -66,6 +68,7 @@ export function createController(deps: ControllerDeps) {
   let tipTarget: number | null = null
   let hideTimer = 0
   let unwatch: () => void = () => {}
+  let destroyed = false
 
   const ui = deps.makeUi({
     level: level => void deps.settings.patch({ level }),
@@ -128,13 +131,21 @@ export function createController(deps: ControllerDeps) {
   }
 
   async function run(): Promise<void> {
-    if (running) return
+    if (running || destroyed) return
     running = true
     lastError = null
     status = { state: 'computing' }
     ui.setState({ kind: 'computing' })
-    const reply = await deps.digest()
+    let reply: DigestReply
+    try {
+      reply = await deps.digest()
+    } catch {
+      // A rejected digest (for example "Extension context invalidated" after a reload) keeps the busy path:
+      // the button shows an error and a click retries. After destroy it is swallowed, below.
+      reply = { ok: false, error: 'busy' }
+    }
     running = false
+    if (destroyed) return
     if (!reply.ok) {
       lastError = reply.error
       if (reply.error === 'aborted') {
@@ -156,6 +167,7 @@ export function createController(deps: ControllerDeps) {
   }
 
   function onSettings(next: Settings): void {
+    if (destroyed) return
     const prev = settings
     settings = next
     if (next.level !== prev.level) {
@@ -169,6 +181,7 @@ export function createController(deps: ControllerDeps) {
   return {
     async start(): Promise<void> {
       settings = await deps.settings.get()
+      if (destroyed) return
       ui.setLevel(settings.level)
       ui.setTheme(layer.theme)
       layer.onTheme = theme => ui.setTheme(theme)
@@ -187,7 +200,7 @@ export function createController(deps: ControllerDeps) {
           tipTarget = null
           layer.setHot(null)
           ui.hideTip()
-          document.documentElement.style.cursor = ''
+          ui.setPointer(false)
         }, 220)
         return
       }
@@ -196,10 +209,11 @@ export function createController(deps: ControllerDeps) {
       const mark = marks[hit.index]!
       layer.setHot(hit.index)
       ui.showTip(tipText(mark), { x, top: hit.rect.top, bottom: hit.rect.bottom }, mark.tone !== 'caveat')
-      document.documentElement.style.cursor = mark.tone === 'caveat' ? '' : 'pointer'
+      ui.setPointer(mark.tone !== 'caveat')
     },
     activate: (index: number): void => jump(index, false),
     destroy(): void {
+      destroyed = true
       unwatch()
       clearTimeout(hideTimer)
       layer.onTheme = undefined

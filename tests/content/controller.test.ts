@@ -17,7 +17,7 @@ const page: PageUnits = {
 }
 const RESULT = { claims: [{ sid: 's001', pClaim: 0.9, role: 'method' as const, ranked: [['s002', 0.8]] as [string, number][] }], caveats: [['s003', 0.9, 'limitation']] as [string, number, 'limitation'][] }
 
-function harness(initial: Partial<Settings>, replies: DigestReply[]) {
+function harness(initial: Partial<Settings>, replies: DigestReply[], digestOverride?: () => Promise<DigestReply>) {
   let settings: Settings = { ...DEFAULT_SETTINGS, ...initial }
   const watchers: ((s: Settings) => void)[] = []
   const layer = {
@@ -30,8 +30,8 @@ function harness(initial: Partial<Settings>, replies: DigestReply[]) {
     pulse: vi.fn(),
     destroy: vi.fn(),
   }
-  const ui = { setState: vi.fn(), setLevel: vi.fn(), setTheme: vi.fn(), announce: vi.fn(), showBubble: vi.fn(), showTip: vi.fn(), hideTip: vi.fn(), isOverTip: vi.fn(() => false), setAnchors: vi.fn(), focusAnchor: vi.fn(), destroy: vi.fn() }
-  const digest = vi.fn(async () => replies.shift()!)
+  const ui = { setState: vi.fn(), setLevel: vi.fn(), setTheme: vi.fn(), announce: vi.fn(), showBubble: vi.fn(), showTip: vi.fn(), hideTip: vi.fn(), isOverTip: vi.fn(() => false), setAnchors: vi.fn(), focusAnchor: vi.fn(), setPointer: vi.fn(), destroy: vi.fn() }
+  const digest = vi.fn(digestOverride ?? (async () => replies.shift()!))
   const openSetup = vi.fn()
   const patch = vi.fn(async (p: Partial<Settings>) => {
     settings = { ...settings, ...p }
@@ -140,5 +140,54 @@ describe('createController', () => {
     expect(h.ui.setAnchors.mock.lastCall![0]).toEqual(
       expect.arrayContaining([expect.objectContaining({ left: 100, top: 200, width: 30, height: 40 })]),
     )
+  })
+
+  // Fix round 1, finding 1: the pointer cursor must never touch the paper's own <html> — it goes through the
+  // UI port instead, never `document.documentElement.style` directly.
+  it('hovering a claim sets the pointer, a caveat clears it, and leaving clears it after the hide delay', async () => {
+    vi.useFakeTimers()
+    try {
+      const h = harness({}, [{ ok: true, result: RESULT, cached: false }])
+      await h.c.start()
+      await h.patch({ level: 2 }) // brings in the caveat mark (index 2) alongside claim (0) and evidence (1)
+      const rect = { top: 0, bottom: 10 } as DOMRect
+      h.c.hover({ index: 0, rect }, 10)
+      expect(h.ui.setPointer).toHaveBeenLastCalledWith(true)
+      h.c.hover({ index: 2, rect }, 10)
+      expect(h.ui.setPointer).toHaveBeenLastCalledWith(false)
+      h.c.hover({ index: 0, rect }, 10)
+      h.c.hover(null, 0)
+      vi.advanceTimersByTime(220)
+      expect(h.ui.setPointer).toHaveBeenLastCalledWith(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Fix round 1, finding 2: nothing must run after destroy(), and a rejected digest must not become an
+  // unhandled rejection.
+  it('destroy() while the digest is pending stops the run from touching the torn-down layer and ui', async () => {
+    let resolve!: (reply: DigestReply) => void
+    const pending = new Promise<DigestReply>(res => {
+      resolve = res
+    })
+    const h = harness({}, [], () => pending)
+    const started = h.c.start()
+    await flush()
+    expect(h.ui.setState).toHaveBeenLastCalledWith({ kind: 'computing' })
+    h.c.destroy()
+    resolve({ ok: true, result: RESULT, cached: false })
+    await started
+    await flush()
+    expect(h.layer.paint).not.toHaveBeenCalled()
+    expect(h.ui.setAnchors).not.toHaveBeenCalled()
+    expect(h.ui.setState).not.toHaveBeenCalledWith({ kind: 'done' })
+  })
+
+  it('a rejected digest shows the busy error state, with no unhandled rejection', async () => {
+    const h = harness({}, [], () => Promise.reject(new Error('Extension context invalidated.')))
+    await h.c.start()
+    expect(h.ui.setState).toHaveBeenLastCalledWith({ kind: 'error', error: 'busy' })
+    expect(h.c.status()).toEqual({ state: 'error', error: 'busy' })
   })
 })
