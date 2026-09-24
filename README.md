@@ -124,13 +124,10 @@ pnpm zip          # a zip like the one in the release
 
 ```mermaid
 flowchart LR
-    P["arXiv HTML page"] -->|"cut into sentences,<br/>in the page"| C["content script"]
-    C -->|"sentences + ids"| W["service worker"]
-    W -->|"round 1: claim roles,<br/>evidence windows, caveat kinds"| J(("Jev"))
-    W -->|"round 2: role-aware pick,<br/>verify, caveat checks"| J
-    J -->|"probabilities"| W
-    W -->|"ranked sentence ids<br/>(cached)"| C
-    C -->|"bands behind the text"| P
+    P["arXiv HTML page"] -->|"its sentences"| X["JevPaper<br/>in your browser"]
+    X -->|"two rounds of<br/>typed questions"| J(("Jev"))
+    J -->|"probabilities"| X
+    X -->|"marks, cached"| P
 ```
 
 1. **Cut.** The content script cuts the paper into sentences in the page itself, keeping formulas and display
