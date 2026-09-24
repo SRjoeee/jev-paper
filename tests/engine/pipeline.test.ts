@@ -28,6 +28,8 @@ const sectionTitle = (state: unknown): string | undefined => {
   return 'section' in s && typeof s.section === 'object' ? s.section.title : undefined
 }
 
+const hasCandidates = (state: unknown): boolean => typeof state === 'object' && state !== null && 'candidates' in state
+
 /** Deterministic answers; in the appendix window the evidence Choice leans hard on its first sentence */
 function fakeAsk(log: { state: unknown; questions: Questions }[]) {
   return async (state: unknown, questions: Questions): Promise<Answers> => {
@@ -48,15 +50,25 @@ function fakeAsk(log: { state: unknown; questions: Questions }[]) {
 }
 
 describe('digest', () => {
-  it('asks round one (roles, one evidence request per window, one caveat request per chunk) then round two in parts of at most 55', async () => {
+  it('asks round one (roles, one evidence request per window, one caveat request per chunk) then round two', async () => {
     const log: { state: unknown; questions: Questions }[] = []
     await digest({ title: 'T', units }, fakeAsk(log))
-    const hasCandidates = (state: unknown): boolean => typeof state === 'object' && state !== null && 'candidates' in state
     const roundOne = log.filter(r => !hasCandidates(r.state))
     const roundTwo = log.filter(r => hasCandidates(r.state))
     expect(roundOne).toHaveLength(1 + 2 + 2) // roles + windows S1, A1 + one caveat chunk per window
-    expect(roundTwo.length).toBeGreaterThan(0)
-    expect(roundTwo.every(r => Object.keys(r.questions).length <= 55)).toBe(true)
+    expect(roundTwo).toHaveLength(1)
+  })
+
+  it('sends a round two of more than 110 questions in ⌈n/110⌉ parts of at most 110, all with the same state', async () => {
+    const body = Array.from({ length: 100 }, (_, i) => unit(`s${String(i + 10).padStart(3, '0')}`, 'body', 'S1', '1 Method', `Sentence ${i}.`))
+    const log: { state: unknown; questions: Questions }[] = []
+    await digest({ title: 'T', units: [...units.slice(0, 2), ...body] }, fakeAsk(log))
+    const roundTwo = log.filter(r => hasCandidates(r.state))
+    const sizes = roundTwo.map(r => Object.keys(r.questions).length)
+    const n = sizes.reduce((a, b) => a + b, 0)
+    expect(n).toBe(2 * (1 + 5) + 2 * 70) // two claims: a pick and 5 verifications each; 70 caveat candidates: 2 each
+    expect(sizes).toEqual([110, n - 110])
+    expect(new Set(roundTwo.map(r => JSON.stringify(r.state))).size).toBe(1)
   })
 
   it('never ranks an appendix Contributions sentence as evidence with the fixes, and does without them', async () => {

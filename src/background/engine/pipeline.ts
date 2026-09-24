@@ -1,6 +1,7 @@
 // The experiment's frozen `final` pipeline (variants.frozen.mjs: makeV6 with evidenceWeight5, caveatWeight,
-// round2Max 55), ported operation for operation — the parity test replays its recorded answers by request hash, so
-// the key order of every state and question object matters. `fixes` adds spec §6.2's two general fixes.
+// round2Max 55), ported operation for operation, with round two sent in parts of 110 — the parity test replays its
+// recorded answers per question, by a hash of the state and the question, so every state and question object must
+// serialise exactly as the experiment's. `fixes` adds spec §6.2's two general fixes.
 import type { CaveatType, DigestResult, Role } from '@/shared/result'
 import type { Paper, Unit } from '@/shared/units'
 import type { Answer, Answers, Questions } from '../jev/wire'
@@ -20,7 +21,10 @@ const RANK_TOP = 10
 const POOL_TOP = 8
 const VERIFY_TOP = 5
 const CAVEAT_TOP = 70
-const ROUND2_MAX = 55
+// Round two's part size. The experiment's 55 came from the Vercel gateway's 503s on larger requests (LOG.md "v9 /
+// v10"); on OpenRouter the 2026-09-25 review measured 110 at −2 requests and −4.9 % tokens with the same quality
+// and latency, and 194 questions in one request succeeded 12/12. The experiment keeps 55 (parity replays per question).
+const ROUND2_MAX = 110
 const OUT_RANKED = 8
 const OUT_CAVEATS = 40
 
