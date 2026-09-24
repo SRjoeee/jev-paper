@@ -45,7 +45,7 @@
 }
 button.tip { cursor: pointer; }
 button.tip:focus-visible { outline-offset: 2px; }
-@media (hover: hover) { button.tip:hover { background: var(--jp-accent); color: #ffffff; } }
+@media (hover: hover) { button.tip:hover { background: var(--jp-accent); color: var(--jp-on-accent); } }
 
 .bubble {
   position: fixed; right: 76px; bottom: 34px; z-index: 2147483000;

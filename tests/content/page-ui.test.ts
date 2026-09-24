@@ -136,4 +136,25 @@ describe('PageUi', () => {
     ui.destroy()
     expect(document.querySelector('jevpaper-ui, jevpaper-anchors')).toBeNull()
   })
+
+  it('setTheme switches data-theme on the element carrying .jp-theme, and back', () => {
+    const { ui, root } = setup()
+    const themed = root.querySelector('.jp-theme')!
+    expect(themed.getAttribute('data-theme')).toBe('light')
+    ui.setTheme('dark')
+    expect(themed.getAttribute('data-theme')).toBe('dark')
+    ui.setTheme('light')
+    expect(themed.getAttribute('data-theme')).toBe('light')
+  })
+
+  it('showBubble shows the bubble; dismissing it hides the bubble and calls onDismiss once', () => {
+    const { ui, $ } = setup()
+    const onDismiss = vi.fn()
+    ui.showBubble(onDismiss)
+    const bubble = $('.bubble')
+    expect(bubble.hidden).toBe(false)
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(bubble.hidden).toBe(true)
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
 })

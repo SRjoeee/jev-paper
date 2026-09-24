@@ -9,6 +9,7 @@
   --jp-field: #f4f6f9;
   --jp-line: #eceef2;
   --jp-accent: #2563eb;
+  --jp-on-accent: #ffffff;
   --jp-danger: #c2410c;
   --jp-ink: #111827;
   --jp-on-ink: #ffffff;
@@ -30,6 +31,7 @@
   --jp-field: #2a2825;
   --jp-line: #3a3733;
   --jp-accent: #6ea8fe;
+  --jp-on-accent: #1f2630;
   --jp-danger: #fb923c;
   --jp-ink: #f5f3f0;
   --jp-on-ink: #1f2630;

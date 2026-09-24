@@ -4,7 +4,7 @@
   font: inherit; color: var(--jp-text-muted); text-align: start; white-space: nowrap; cursor: pointer;
 }
 .row[data-lit] { color: var(--jp-text); font-weight: 500; }
-.row:focus-visible { outline-offset: -2px; }
+.row:focus-visible { outline-offset: 2px; }
 @media (hover: hover) { .row:hover { background: var(--jp-hover); } }
 .stroke { display: inline-flex; gap: 2px; opacity: 0.42; filter: saturate(0.5); }
 .row[data-lit] .stroke { opacity: 1; filter: none; }
