@@ -17,6 +17,9 @@ const BLOCK = '.ltx_p, figcaption, .ltx_caption, .ltx_note_content, li, td'
 
 export class BandLayer {
   onTheme?: (theme: Theme) => void
+  /** Ruling 18: fires after every layout write — paint() and any relayout the layer schedules on its own — so a
+   * consumer that keeps anchors over the bands (Task 11) can rebuild them from fresh geometry every time. */
+  onLayout?: () => void
   private host: HTMLDivElement
   private style: HTMLStyleElement
   private marks: PaintMark[] = []
@@ -205,5 +208,6 @@ export class BandLayer {
       this.els.set(b.mark, list)
     }
     this.host.replaceChildren(fragment)
+    this.onLayout?.()
   }
 }

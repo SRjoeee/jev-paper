@@ -137,6 +137,19 @@ describe('BandLayer', () => {
     Reflect.deleteProperty(document, 'fonts')
   })
 
+  it('onLayout fires after paint() and after a scheduled relayout', async () => {
+    const layer = makeLayer()
+    const p = document.getElementById('p')!
+    const seen: number[] = []
+    layer.onLayout = () => seen.push(seen.length)
+    layer.paint([{ tone: 'claim', ranges: [fakeRange(p, [[100, 116, 10, 60]])] }])
+    expect(seen).toHaveLength(1)
+    p.classList.add('ltx_active')
+    await tick()
+    expect(seen).toHaveLength(2)
+    layer.destroy()
+  })
+
   it('a prefers-color-scheme change that flips the page background updates theme and calls onTheme', async () => {
     const media = new MediaStub()
     const original = window.matchMedia.bind(window)

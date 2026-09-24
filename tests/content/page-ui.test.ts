@@ -119,6 +119,24 @@ describe('PageUi', () => {
     expect(events.anchor).toHaveBeenCalledWith(4)
   })
 
+  it('setAnchors updates buttons in place: a focused anchor keeps focus through moved geometry', () => {
+    const { ui, events } = setup()
+    ui.setAnchors([{ index: 4, label: '摘要第 1 条：跳到正文证据', left: 10, top: 20, width: 100, height: 24 }])
+    const anchors = document.querySelector('jevpaper-anchors')!.shadowRoot!
+    const button = anchors.querySelector<HTMLButtonElement>('button[data-index="4"]')!
+    button.focus()
+    expect(anchors.activeElement).toBe(button)
+    events.anchorFocus.mockClear()
+    ui.setAnchors([{ index: 4, label: '摘要第 1 条：跳到正文证据', left: 50, top: 90, width: 120, height: 30 }])
+    expect(anchors.querySelector<HTMLButtonElement>('button[data-index="4"]')).toBe(button)
+    expect(anchors.activeElement).toBe(button)
+    expect(button.style.left).toBe('50px')
+    expect(button.style.top).toBe('90px')
+    expect(button.style.width).toBe('120px')
+    expect(button.style.height).toBe('30px')
+    expect(events.anchorFocus).not.toHaveBeenCalledWith(null)
+  })
+
   it('a link tip is a button that reports a click; a caveat tip is not', () => {
     const { ui, events, $ } = setup()
     ui.showTip('兑现摘要第 2 条 · 点击回到摘要', { x: 100, top: 300, bottom: 320 }, true)

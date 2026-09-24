@@ -45,6 +45,7 @@ export class PageUi {
   private overTip = false
   private anchorsHost: HTMLElement
   private anchorsRoot: ShadowRoot
+  private anchors = new Map<number, HTMLButtonElement>()
   private level: Level = 1
   private state: ButtonState = { kind: 'idle' }
   private cleanup: (() => void)[] = []
@@ -194,19 +195,34 @@ export class PageUi {
     return this.overTip
   }
 
+  /**
+   * Ruling 18: updates buttons in place, keyed by `index`, instead of replacing them — a relayout (resize, font
+   * load, a mutation the band layer watches) calls this again with fresh geometry, and a focused anchor must keep
+   * focus through it (no blur, so no spurious `anchorFocus(null)`).
+   */
   setAnchors(anchors: Anchor[]): void {
-    for (const old of this.anchorsRoot.querySelectorAll('button')) old.remove()
+    const next = new Set(anchors.map(a => a.index))
+    for (const old of [...this.anchors.keys()]) {
+      if (!next.has(old)) {
+        this.anchors.get(old)!.remove()
+        this.anchors.delete(old)
+      }
+    }
     for (const a of anchors) {
-      const button = this.doc.createElement('button')
-      button.type = 'button'
-      button.className = 'anchor'
-      button.dataset.index = String(a.index)
+      let button = this.anchors.get(a.index)
+      if (!button) {
+        button = this.doc.createElement('button')
+        button.type = 'button'
+        button.className = 'anchor'
+        button.dataset.index = String(a.index)
+        button.addEventListener('click', () => this.events.anchor(a.index))
+        button.addEventListener('focus', () => this.events.anchorFocus(a.index))
+        button.addEventListener('blur', () => this.events.anchorFocus(null))
+        this.anchors.set(a.index, button)
+        this.anchorsRoot.append(button)
+      }
       button.setAttribute('aria-label', a.label)
       button.style.cssText = `left:${a.left}px;top:${a.top}px;width:${a.width}px;height:${a.height}px`
-      button.addEventListener('click', () => this.events.anchor(a.index))
-      button.addEventListener('focus', () => this.events.anchorFocus(a.index))
-      button.addEventListener('blur', () => this.events.anchorFocus(null))
-      this.anchorsRoot.append(button)
     }
   }
 
@@ -218,6 +234,7 @@ export class PageUi {
     for (const undo of this.cleanup) undo()
     this.host.remove()
     this.anchorsHost.remove()
+    this.anchors.clear()
   }
 
   private isOpen(): boolean {
