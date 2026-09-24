@@ -1,4 +1,5 @@
-// Copied from Read arXiv src/core/extractor/index.ts@3f3c91f8 (GPL-3.0), 2026-09-24.
+// Adapted from Read arXiv src/core/extractor/index.ts@3f3c91f8 (GPL-3.0), 2026-09-24: without its
+// `export * from './context'` (the translation context is not copied).
 // Block extraction (DESIGN.md §4.1). extract() only reads the DOM; markBlocks() is what writes data-axt-id.
 // The traversal is decoupled from the classification: classification comes from classify() of rules/latexml, and
 // this file decides only “yield or not” and “descend or not”.

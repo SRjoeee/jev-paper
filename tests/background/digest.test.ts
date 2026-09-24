@@ -4,7 +4,9 @@ import { runOf } from '@/background/cache'
 import { createDigestService } from '@/background/digest'
 import { digest } from '@/background/engine/pipeline'
 import { type Ask, JevError } from '@/background/jev/client'
+import { yesno } from '@/background/jev/wire'
 import { type Credentials, DEFAULT_CREDENTIALS } from '@/shared/credentials'
+import type { DigestResult } from '@/shared/result'
 
 const RESULT = { claims: [], caveats: [] }
 const msg = { paperId: 'p', title: 'T', unitsHash: 'h', units: [] }
@@ -164,6 +166,77 @@ describe('createDigestService', () => {
     expect(await service.request(msg, 1)).toEqual({ ok: true, result: RESULT, cached: false })
     expect(runs).toBe(1)
     expect(service.inFlight()).toBe(0)
+  })
+
+  it('an incognito tab is served from the cache but writes nothing: no result, no read time', async () => {
+    const gets: { key: string; touch?: boolean }[] = []
+    const puts: string[] = []
+    const store = new Map<string, DigestResult>()
+    let runs = 0
+    const service = createDigestService({
+      cache: {
+        get: async (key, options) => {
+          gets.push({ key, touch: options?.touch })
+          return store.get(key)
+        },
+        put: async (key, value) => {
+          puts.push(key)
+          store.set(key, value)
+        },
+      },
+      credentials: async () => ({ ...DEFAULT_CREDENTIALS, apiKey: 'k' }),
+      engine: async (_paper, ask) => {
+        runs++
+        await ask({}, {})
+        return RESULT
+      },
+      client: () => async () => ({ answers: {}, model: null }),
+    })
+    expect(await service.request(msg, 1, true)).toEqual({ ok: true, result: RESULT, cached: false })
+    expect(puts).toEqual([])
+    expect(gets.at(-1)?.touch).toBe(false)
+    // A normal tab runs it (the incognito run left nothing) and stores it; incognito then reads it without a trace
+    await service.request(msg, 2)
+    expect(runs).toBe(2)
+    expect(puts).toHaveLength(1)
+    expect(await service.request(msg, 1, true)).toEqual({ ok: true, result: RESULT, cached: true })
+    expect(gets.at(-1)?.touch).toBe(false)
+    expect(await service.request(msg, 2)).toMatchObject({ cached: true })
+    expect(gets.at(-1)?.touch).toBe(true)
+  })
+
+  it('an incognito tab and a normal tab never share a run', async () => {
+    const h = harness()
+    const a = h.service.request(msg, 1, true)
+    const b = h.service.request(msg, 2)
+    await new Promise(r => setTimeout(r, 0))
+    expect(h.service.inFlight()).toBe(2)
+    h.release()
+    await Promise.all([a, b])
+    expect(h.store.size).toBe(1)
+  })
+
+  it('cancels the requests still in flight when one request of the run fails', async () => {
+    let cancelled = 0
+    const service = createDigestService({
+      cache: { get: async () => undefined, put: async () => {} },
+      credentials: async () => ({ ...DEFAULT_CREDENTIALS, apiKey: 'k' }),
+      engine: async (_paper, ask) => {
+        await Promise.all([ask({}, { fail: yesno('q') }), ask({}, { slow: yesno('q') })])
+        return RESULT
+      },
+      client: () => async (_s, questions, signal) => {
+        if ('fail' in questions) throw new JevError('busy', '503')
+        return new Promise((_resolve, reject) =>
+          signal?.addEventListener('abort', () => {
+            cancelled++
+            reject(new JevError('aborted', 'aborted'))
+          }),
+        )
+      },
+    })
+    expect(await service.request(msg, 1)).toEqual({ ok: false, error: 'busy' })
+    expect(cancelled).toBe(1)
   })
 
   it('reports any other failure of the engine as busy', async () => {

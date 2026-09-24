@@ -315,8 +315,9 @@ export async function pageUnitsChunked(doc: Document, slice = 25): Promise<(Page
   return { title, units: numbering.units, ranges: numbering.ranges, busyMs }
 }
 
+/** The cache's `unitsHash` (spec §5.1): SHA-256 over every unit field the engine reads — a sid is its position */
 export async function hashUnits(units: readonly Unit[]): Promise<string> {
-  const data = new TextEncoder().encode(JSON.stringify(units.map(u => [u.kind, u.text])))
+  const data = new TextEncoder().encode(JSON.stringify(units.map(u => [u.kind, u.text, u.sec, u.secTitle, u.pid, u.list === true])))
   const digest = await crypto.subtle.digest('SHA-256', data)
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
 }

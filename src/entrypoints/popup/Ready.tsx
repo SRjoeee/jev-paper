@@ -20,7 +20,7 @@ function statusLine(status: PageStatus | null): string {
   if (!status || status.state === 'idle') return COPY.status.notPaper
   if (status.state === 'computing') return COPY.status.computing
   if (status.state === 'error') return COPY.pageError[status.error]
-  return status.marks ? COPY.status.marked(status.marks) : COPY.status.none
+  return status.marks ? COPY.status.pageMarked(status.marks) : COPY.status.none
 }
 
 const mask = (key: string) => (key.length <= 12 ? '••••' : `${key.slice(0, 6)}…${key.slice(-4)}`)

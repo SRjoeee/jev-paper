@@ -43,6 +43,12 @@ describe('ResultCache', () => {
     expect(cacheKey('1706.03762', 'abc', 'typesafe/jev-1.13-20260917')).toBe(`1706.03762|abc|typesafe/jev-1.13-20260917|${ENGINE_VERSION}|${RULES_VERSION}`)
   })
 
+  it('keys a paper by its id without the version, so identical text is shared across versions', () => {
+    expect(cacheKey('1706.03762v7', 'abc', 'm')).toBe(cacheKey('1706.03762', 'abc', 'm'))
+    expect(cacheKey('hep-th/9711200v2', 'abc', 'm')).toBe(cacheKey('hep-th/9711200', 'abc', 'm'))
+    expect(cacheKey('1706.03762v7', 'abc', 'm')).not.toBe(cacheKey('1706.03762v7', 'def', 'm'))
+  })
+
   it('changes the key when the model changes', () => {
     expect(cacheKey('1706.03762', 'abc', 'typesafe/jev-1.13-20260917')).not.toBe(cacheKey('1706.03762', 'abc', 'typesafe/jev-1.14-20261101'))
   })

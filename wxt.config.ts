@@ -1,4 +1,5 @@
 import { defineConfig } from 'wxt'
+import { COPY } from './src/shared/copy'
 
 // JEV_E2E=1 builds the copy the end-to-end suite loads: its own output directory, and a host permission for the
 // local fake Jev server (tests/e2e). A release build never carries it.
@@ -12,8 +13,10 @@ export default defineConfig({
   vite: () => ({ build: { modulePreload: false } }),
   manifest: {
     name: 'JevPaper',
-    description: '打开 arXiv 论文，重点自动标出来。',
-    // caretPositionFromPoint (hit testing) needs Chrome 128
+    description: COPY.description,
+    // The code's own floor is Chrome 116: every Jev request combines its abort and its timeout with AbortSignal.any
+    // (116); scrollend (114), oklch() (111), :has() (105) and the rotate/scale properties (104) are older. 128 is
+    // kept above that because nothing older than it has been run, and the bundled libraries' floors are not audited.
     minimum_chrome_version: '128',
     permissions: ['storage'],
     host_permissions: ['https://openrouter.ai/*', 'https://api.typesafe.ai/*', ...(e2e ? ['http://127.0.0.1/*'] : [])],

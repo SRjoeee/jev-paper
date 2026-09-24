@@ -46,20 +46,26 @@ export function sendToTab<T extends MessageType>(tabId: number, message: Message
   return browser.tabs.sendMessage(tabId, message) as Promise<Reply<T>>
 }
 
-export type Handlers = { [T in MessageType]?: (message: Message<T>, sender: { tabId?: number }) => Promise<Reply<T>> | undefined }
+/** Who sent a message: the tab, and whether it is an incognito one */
+export interface Sender {
+  tabId?: number
+  incognito?: boolean
+}
+
+export type Handlers = { [T in MessageType]?: (message: Message<T>, sender: Sender) => Promise<Reply<T>> | undefined }
 
 /**
  * A `runtime.onMessage` listener for a table of handlers. WXT ships no polyfill, so an asynchronous reply needs
  * `sendResponse` and `return true` (Read arXiv shared/messages.ts answerMessages, same shape).
  */
 export function answer(handlers: Handlers) {
-  return (message: unknown, sender: { tab?: { id?: number } }, sendResponse: (reply: unknown) => void): true | undefined => {
+  return (message: unknown, sender: { tab?: { id?: number; incognito?: boolean } }, sendResponse: (reply: unknown) => void): true | undefined => {
     if (!isMessage(message)) return undefined
-    const handler = handlers[message.type] as ((m: Message, s: { tabId?: number }) => Promise<unknown> | undefined) | undefined
+    const handler = handlers[message.type] as ((m: Message, s: Sender) => Promise<unknown> | undefined) | undefined
     if (!handler) return undefined
     let reply: Promise<unknown> | undefined
     try {
-      reply = handler(message, { tabId: sender.tab?.id })
+      reply = handler(message, { tabId: sender.tab?.id, incognito: sender.tab?.incognito === true })
     } catch (error) {
       reply = Promise.reject(error)
     }

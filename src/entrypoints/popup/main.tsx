@@ -7,6 +7,6 @@ import { App } from './App'
 
 document.body.classList.add('jp-theme')
 applyTheme(document.body, matchMedia('(prefers-color-scheme: dark)'))
-// Opened as a tab (the page's 「点这里去设置」), not from the toolbar: centre the card
+// Opened as a tab (from the page button's "go to settings" action), not from the toolbar: centre the card
 if (window.innerWidth > 400) document.body.classList.add('tab')
 createRoot(document.getElementById('root')!).render(<App />)

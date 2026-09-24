@@ -17,6 +17,7 @@
     "postinstall": "wxt prepare",
     "fixtures:fetch": "node scripts/fetch-fixtures.mjs",
     "icons": "node scripts/icons.mjs",
+    "notices": "node scripts/licenses.mjs",
     "e2e": "pnpm build:e2e && node tests/e2e/run.mjs",
     "eval:regress": "JEV_REGRESS=1 vitest run eval/regress.test.ts"
   },

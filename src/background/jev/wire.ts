@@ -32,7 +32,8 @@ function read(question: Question, a: unknown): Answer | null {
     case 'choice': {
       const { choice: picked, probabilities, confidence } = a
       if (a.type !== 'choice' || typeof picked !== 'string' || !Object.hasOwn(question.criteria, picked)) return null
-      if (!isObject(probabilities) || !Object.values(probabilities).every(isNumber)) return null
+      // Probabilities are over the question's own criteria: a key it does not have means the answer is not to it
+      if (!isObject(probabilities) || !Object.entries(probabilities).every(([id, p]) => Object.hasOwn(question.criteria, id) && isNumber(p))) return null
       return { type: 'choice', choice: picked, probabilities: probabilities as Record<string, number>, ...(isNumber(confidence) ? { confidence } : {}) }
     }
     case 'score':
@@ -43,7 +44,7 @@ function read(question: Question, a: unknown): Answer | null {
 /**
  * Reads the answers off the wire, checked against the questions asked: every question answered, with its asked
  * type — a yes/no with a finite probability, a choice with one of its criteria and a probabilities object of
- * finite numbers, a score with a finite score. Throws on the first answer that is not; answers to questions not
+ * finite numbers keyed by its criteria (a subset of them), a score with a finite score. Throws on the first answer that is not; answers to questions not
  * asked are dropped.
  */
 export function fromWire(questions: Questions, answers: Record<string, unknown>): Answers {

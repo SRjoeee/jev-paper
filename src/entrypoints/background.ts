@@ -13,7 +13,7 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener(
     answer({
-      digest: (message, sender) => service.request(message, sender.tabId),
+      digest: (message, sender) => service.request(message, sender.tabId, sender.incognito),
       validate: message => validateKey(endpointOf({ ...DEFAULT_CREDENTIALS, ...message })),
       'open-setup': async () => {
         await browser.tabs.create({ url: browser.runtime.getURL('/popup.html') })

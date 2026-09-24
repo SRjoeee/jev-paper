@@ -60,8 +60,9 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
 
   /** The model asked: the endpoint's until it is rejected as unknown, then its fallback for the rest of this client */
   let model = endpoint.model
-  /** spec §6.1: a 404, or a 400 whose body names the model (OpenRouter's exact reply could not be seen: no key).
-   *  422 is TypeSafe's documented status for a request that fails validation; it is taken the same way. */
+  /** spec §6.1: a 404, or a 400 whose body names the model — OpenRouter answers an unknown id with HTTP 400
+   *  `{"error":{"message":"Model <id> does not exist","code":400}}` (seen live, 2026-09-25). 422 is TypeSafe's
+   *  documented status for a request that fails validation; it is taken the same way. */
   const unknownModel = (status: number, text: string, asked: string): boolean =>
     status === 404 || ((status === 400 || status === 422) && (/model/i.test(text) || text.includes(asked)))
 

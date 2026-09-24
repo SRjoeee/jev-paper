@@ -346,9 +346,15 @@ describe('answers checked against the questions asked', () => {
     ['a choice outside its criteria', { ...good, b: { ...good.b, choice: 's3' } }],
     ['a choice without probabilities', { ...good, b: { type: 'choice', choice: 's2' } }],
     ['a choice whose probabilities are not numbers', { ...good, b: { ...good.b, probabilities: { s1: 'low', s2: 0.9 } } }],
+    ['a choice with a probability for an id outside its criteria', { ...good, b: { ...good.b, probabilities: { s1: 0.1, s2: 0.8, s9: 0.1 } } }],
     ['an answer that is not an object', { ...good, a: 0.4 }],
   ])('throws not-jev on %s', async (_name, answers) => {
     await expect(asking(answers)({}, questions)).rejects.toMatchObject({ code: 'not-jev' })
+  })
+
+  it('accepts probabilities over a subset of the criteria', async () => {
+    const reply = await asking({ ...good, b: { type: 'choice', choice: 's2', probabilities: { s2: 1 } } })({}, questions)
+    expect(reply.answers.b).toEqual({ type: 'choice', choice: 's2', probabilities: { s2: 1 } })
   })
 
   it('checks a score answer too', async () => {

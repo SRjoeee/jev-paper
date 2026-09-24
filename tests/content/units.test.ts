@@ -69,7 +69,8 @@ function nextInOrder(node: Node): Node | null {
 /**
  * What the `lead` this test compares against never contains: a MathML `<annotation>`/`<annotation-xml>`
  * (the raw TeX source, hidden from a reader — `@/core/sentences`'s `visibleTextOf` excludes it the same
- * way, and a render-aware `Range.toString()` would too), and `<math>` itself, since `u.text` represents
+ * way; Chrome's `Range.toString()` does not, it is not render-aware and includes that hidden TeX, as the
+ * e2e suite measured in Task 14), and `<math>` itself, since `u.text` represents
  * a formula as `$tex$`/`[equation]`/`[math]` and the test's own `lead` strips that out to a blank before
  * comparing (`u.text.replace(/\$[^$]*\$|\[equation\]|\[math\]/g, ' ')`) — so the DOM text this walk
  * rebuilds has to blank the same content, or a sentence like "Given 𝐳, the decoder…" would compare its
@@ -338,12 +339,14 @@ describe('isList', () => {
 })
 
 describe('hashUnits', () => {
-  it('depends on kind and text only', async () => {
-    const a = await hashUnits([{ sid: 's001', kind: 'abstract', sec: 'abstract', secTitle: 'Abstract', pid: 'p', text: 'One.' }])
-    const b = await hashUnits([{ sid: 's009', kind: 'abstract', sec: 'x', secTitle: 'y', pid: 'q', text: 'One.' }])
-    const c = await hashUnits([{ sid: 's001', kind: 'body', sec: 'abstract', secTitle: 'Abstract', pid: 'p', text: 'One.' }])
-    expect(a).toBe(b)
-    expect(a).not.toBe(c)
+  it('depends on every field the engine reads, and on nothing else', async () => {
+    const unit = { sid: 's001', kind: 'body', sec: 'S1', secTitle: '1 Method', pid: 'p', text: 'One.' } as const
+    const a = await hashUnits([unit])
     expect(a).toMatch(/^[0-9a-f]{64}$/)
+    // The sid is the unit's position, which the other units already fix
+    expect(await hashUnits([{ ...unit, sid: 's009' }])).toBe(a)
+    for (const change of [{ kind: 'caption' as const }, { text: 'Two.' }, { sec: 'S2' }, { secTitle: '2 Method' }, { pid: 'q' }, { list: true as const }]) {
+      expect(await hashUnits([{ ...unit, ...change }]), JSON.stringify(change)).not.toBe(a)
+    }
   })
 })

@@ -2,15 +2,22 @@ import type { ErrorCode } from './errors'
 import type { CaveatType, Role } from './result'
 
 // Every string the reader sees. One term for the product's output: 标记.
+const LEDE = '打开 arXiv 论文，重点自动标出来。'
+
 export const COPY = {
   brand: 'JevPaper',
-  lede: '打开 arXiv 论文，重点自动标出来。',
+  lede: LEDE,
+  /** The manifest's description (wxt.config.ts), shown on chrome://extensions */
+  description: LEDE,
   layers: { 1: '主张与证据', 2: '假设与局限', 3: '更多候选' } as const,
   layersLabel: '标记层次',
   button: 'JevPaper：选择标记多少',
   bubble: '点这里，选择标记多少',
   status: {
+    /** The page's own announcement when a digest lands (spec §13) */
     marked: (n: number) => `已标出 ${n} 处`,
+    /** The popup's status line for the tab in front (spec §7) */
+    pageMarked: (n: number) => `本页已标出 ${n} 处`,
     none: '这篇论文没有找到可标记的内容',
     computing: '正在标记…',
     notPaper: '打开任意 arXiv 论文的 HTML 版即可使用',

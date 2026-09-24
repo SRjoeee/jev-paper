@@ -11,7 +11,8 @@ import { type Ask, JevError } from './jev/client'
 import { type Endpoint, endpointOf } from './jev/providers'
 
 export interface DigestDeps {
-  cache: { get(key: string): Promise<DigestResult | undefined>; put(key: string, result: DigestResult): Promise<void> }
+  /** `touch: false` reads without noting the use (an incognito tab leaves no trace) */
+  cache: { get(key: string, options?: { touch?: boolean }): Promise<DigestResult | undefined>; put(key: string, result: DigestResult): Promise<void> }
   /** The key is read here, in the service worker, and nowhere a page can reach (spec §4) */
   credentials: () => Promise<Credentials>
   engine: (paper: Paper, ask: EngineAsk) => Promise<DigestResult>
@@ -29,15 +30,21 @@ interface Flight {
 export function createDigestService(deps: DigestDeps) {
   const flights = new Map<string, Flight>()
 
-  async function request(msg: { paperId: string; title: string; unitsHash: string; units: Unit[] }, tabId?: number): Promise<DigestReply> {
+  /**
+   * An incognito tab (`incognito`) is served from the cache like any other, but nothing it asks is written: not its
+   * result, not the time it read one. Its runs are its own, so a normal tab never waits on a result that will not be
+   * stored, and an incognito tab never joins a normal tab's run.
+   */
+  async function request(msg: { paperId: string; title: string; unitsHash: string; units: Unit[] }, tabId?: number, incognito = false): Promise<DigestReply> {
     // The key holds the model asked, so the endpoint is read first — a cached result is served even without a key
     const credentials = await deps.credentials()
     const endpoint = endpointOf(credentials)
     const key = cacheKey(msg.paperId, msg.unitsHash, endpoint.model)
-    const hit = await deps.cache.get(key)
+    const hit = await deps.cache.get(key, { touch: !incognito })
     if (hit) return { ok: true, result: hit, cached: true }
+    const flightKey = incognito ? `${key}|incognito` : key
     // No await from here to `flights.set`: two requests for one key can never both start a run
-    let flight = flights.get(key)
+    let flight = flights.get(flightKey)
     if (!flight) {
       if (!hasKey(credentials)) return { ok: false, error: 'no-key' }
       const controller = new AbortController()
@@ -54,15 +61,19 @@ export function createDigestService(deps: DigestDeps) {
           const kept: DigestResult = served.size > 0 ? { ...result, model: [...served].join(', ') } : result
           // Best effort: a paid result is delivered even when it cannot be stored (a full disk's QuotaExceededError).
           // Awaited all the same, so the flight ends only once the cache can answer the next request.
-          await deps.cache.put(key, kept).catch(() => {})
+          if (!incognito) await deps.cache.put(key, kept).catch(() => {})
           return { ok: true as const, result: kept, cached: false }
         })
         // A JevError keeps its code — an answer missing or of the wrong type is not-jev, from the client or the
-        // engine — and anything else is busy
-        .catch(error => ({ ok: false as const, error: error instanceof JevError ? error.code : ('busy' as const) }))
-        .finally(() => flights.delete(key))
+        // engine — and anything else is busy. The run has failed as a whole (spec §9: no partial marks), so its
+        // requests still in flight are cancelled rather than paid for.
+        .catch(error => {
+          controller.abort()
+          return { ok: false as const, error: error instanceof JevError ? error.code : ('busy' as const) }
+        })
+        .finally(() => flights.delete(flightKey))
       flight = { promise, controller, waiters: new Set(), run: runOf(msg.paperId, msg.unitsHash) }
-      flights.set(key, flight)
+      flights.set(flightKey, flight)
     }
     const waiter: number | symbol = tabId ?? Symbol('anonymous')
     flight.waiters.add(waiter)

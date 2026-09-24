@@ -158,7 +158,7 @@ describe('popup', () => {
     const el = await render()
     const rows = [...el.querySelectorAll<HTMLElement>('.row')]
     expect(rows.map(r => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
-    expect(q(el, '.status').textContent).toBe('已标出 24 处')
+    expect(q(el, '.status').textContent).toBe('本页已标出 24 处')
     expect(q(el, '.account').textContent).toContain('sk-or-…6789')
     await act(async () => rows[2]!.click())
     expect((await getSettings()).level).toBe(3)
