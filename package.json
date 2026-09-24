@@ -1,0 +1,41 @@
+{
+  "name": "jev-paper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "build:e2e": "JEV_E2E=1 wxt build",
+    "zip": "wxt zip",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "postinstall": "wxt prepare",
+    "fixtures:fetch": "node scripts/fetch-fixtures.mjs",
+    "icons": "node scripts/icons.mjs",
+    "e2e": "pnpm build:e2e && node tests/e2e/run.mjs",
+    "eval:regress": "vitest run eval/regress.test.ts"
+  },
+  "dependencies": {
+    "dexie": "^4.4.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@wxt-dev/module-react": "^1.2.2",
+    "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^20.13.2",
+    "playwright": "^1.63.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wxt": "^0.21.4"
+  }
+}

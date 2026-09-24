@@ -1,0 +1,18 @@
+node_modules/
+.output/
+.output-e2e/
+.wxt/
+.playwright-mcp/
+.agents/
+.superpowers/
+test-results/
+eval/data/
+*.log
+.DS_Store
+# Remote fixtures (tests/fixtures/remote.json): arXiv may distribute them, this repository may not
+tests/fixtures/arxiv/2312.17527.html
+tests/fixtures/arxiv/2401.00418.html
+tests/fixtures/arxiv/2401.00596.html
+tests/fixtures/arxiv/2608.29808.html
+tests/fixtures/arxiv/2609.00245.html
+tests/fixtures/jev/
