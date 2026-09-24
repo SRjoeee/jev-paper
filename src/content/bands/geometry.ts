@@ -93,14 +93,16 @@ export function layoutBands(marks: readonly MarkGeometry[], origin: { left: numb
     })
   }
   const sorted = [...work].sort((a, b) => a.cy - b.cy || a.left - b.left)
+  const reach = Math.max(6, ...work.map(w => (w.bottom - w.top) / 2), 0)
   for (let i = 0; i < sorted.length; i++) {
-    for (let k = i + 1; k < sorted.length && sorted[k]!.cy - sorted[i]!.cy < 8; k++) {
+    for (let k = i + 1; k < sorted.length && sorted[k]!.cy - sorted[i]!.cy < reach; k++) {
       const a = sorted[i]!
       const b = sorted[k]!
       if (a.tone !== b.tone || a.mark === b.mark) continue
       if (Math.abs(a.cy - b.cy) >= Math.max(6, (a.bottom - a.top) / 2)) continue
       const [x, y] = a.left <= b.left ? [a, b] : [b, a]
       const gap = y.left - x.right
+      // gap > -3 * PAD_X admits the small overlap two adjacent 2 px pads can produce
       if (gap > -3 * PAD_X && gap < JOIN_GAP) {
         const mid = (x.right + y.left) / 2
         x.right = mid

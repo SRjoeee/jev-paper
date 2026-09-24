@@ -60,4 +60,50 @@ describe('layoutBands', () => {
     for (const v of [b!.left, b!.top, b!.width, b!.height]) expect(v * 2).toBe(Math.round(v * 2))
     expect(b!.left).toBe(3.5)
   })
+
+  it('joins same-tone marks with tall lineHeight whose centres are within the tolerance', () => {
+    const bands = layoutBands(
+      [
+        { mark: 0, tone: 'claim', lines: [box(100, 116, 10, 100)], glyph: 16, lineHeight: 60 },
+        { mark: 1, tone: 'claim', lines: [box(110, 126, 106, 200)], glyph: 16, lineHeight: 60 },
+      ],
+      origin,
+      1,
+    )
+    const [a, b] = bands
+    expect(a!.left + a!.width).toBe(b!.left)
+    expect(a!.radius).toEqual([4, 0, 0, 4])
+    expect(b!.radius).toEqual([0, 4, 4, 0])
+    expect(a!.top).toBe(b!.top)
+    expect(a!.height).toBe(b!.height)
+  })
+
+  it('does not join same-tone marks with short lineHeight when centres exceed the tolerance', () => {
+    const bands = layoutBands(
+      [
+        { mark: 0, tone: 'claim', lines: [box(100, 116, 10, 100)], glyph: 16, lineHeight: 16 },
+        { mark: 1, tone: 'claim', lines: [box(110, 126, 106, 200)], glyph: 16, lineHeight: 16 },
+      ],
+      origin,
+      1,
+    )
+    const [a, b] = bands
+    expect(a!.left + a!.width).toBe(102)
+    expect(b!.left).toBe(104)
+  })
+
+  it('joins same-tone marks on one line whose padded edges overlap', () => {
+    const bands = layoutBands(
+      [
+        { mark: 0, tone: 'claim', lines: [box(100, 116, 10, 100)], glyph: 16, lineHeight: 24 },
+        { mark: 1, tone: 'claim', lines: [box(100, 116, 99, 200)], glyph: 16, lineHeight: 24 },
+      ],
+      origin,
+      1,
+    )
+    const [a, b] = bands
+    expect(a!.left + a!.width).toBe(b!.left)
+    expect(a!.radius).toEqual([4, 0, 0, 4])
+    expect(b!.radius).toEqual([0, 4, 4, 0])
+  })
 })
