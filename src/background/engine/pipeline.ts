@@ -2,7 +2,7 @@
 // round2Max 55), ported operation for operation, with round two sent in parts of 110 — the parity test replays its
 // recorded answers per question, by a hash of the state and the question, so every state and question object must
 // serialise exactly as the experiment's. `fixes` adds spec §6.2's two general fixes.
-import type { CaveatType, DigestResult, Role } from '@/shared/result'
+import type { CaveatType, ClaimRole, DigestResult } from '@/shared/result'
 import type { Paper, Unit } from '@/shared/units'
 import type { Answer, Answers, Questions } from '../jev/wire'
 import * as Q from './questions'
@@ -27,6 +27,26 @@ const CAVEAT_TOP = 70
 const ROUND2_MAX = 110
 const OUT_RANKED = 8
 const OUT_CAVEATS = 40
+
+// The share of the non-background probability a claim's top role needs to be shown; below it the tip says 「主张」.
+// Chosen on dev in the 2026-09-25 review: the roles shown were right 94 % (dev) and 96 % (test) of the time, against
+// 79 % and 84 % ungated, with about 20 % of claims falling back.
+export const ROLE_CONFIDENCE = 0.7
+const CLAIM_ROLES: readonly ClaimRole[] = ['method', 'result', 'contribution']
+
+/** A claim's roles from its role answer. `top`, the argmax over the non-background roles, words the pick, so a kept
+ *  claim is never worded as background. `shown` is `top` when its share of the non-background probability reaches
+ *  ROLE_CONFIDENCE, and null otherwise. */
+export function roleOf(probabilities: Record<string, number>): { top: ClaimRole; shown: ClaimRole | null } {
+  let top = CLAIM_ROLES[0]!
+  let total = 0
+  for (const role of CLAIM_ROLES) {
+    const p = probabilities[role] ?? 0
+    total += p
+    if (p > (probabilities[top] ?? 0)) top = role
+  }
+  return { top, shown: total > 0 && (probabilities[top] ?? 0) / total >= ROLE_CONFIDENCE ? top : null }
+}
 
 type ChoiceAnswer = Extract<Answer, { type: 'choice' }>
 const probability = (a: Answer | undefined): number => (a?.type === 'boolean' ? a.probability : 0)
@@ -75,7 +95,7 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
       const weight = evidenceWeight(w, fixes)
       for (const [sid, p] of Object.entries(ev.probabilities)) scores[sid] = p * ex * weight
     })
-    return { sid: a.sid, pClaim: 1 - (r.probabilities.background ?? 0), role: r.choice as Role, ranked: rank(scores) }
+    return { sid: a.sid, pClaim: 1 - (r.probabilities.background ?? 0), ...roleOf(r.probabilities), ranked: rank(scores) }
   })
 
   let caveats: [string, number, string | null][] = []
@@ -106,7 +126,7 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
   for (const c of claimSet) {
     const ids = pool.get(c.sid)!
     if (ids.length === 0) continue
-    q[`pk_${c.sid}`] = Q.pickQuestion(c.role, c.sid, Object.fromEntries(ids.map(s => [s, null])) as Record<string, null>)
+    q[`pk_${c.sid}`] = Q.pickQuestion(c.top, c.sid, Object.fromEntries(ids.map(s => [s, null])) as Record<string, null>)
     for (const s of ids.slice(0, VERIFY_TOP)) q[`vf_${c.sid}_${s}`] = Q.verifyQuestion(c.sid, s)
   }
   for (const s of cvCands) {
@@ -147,7 +167,7 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
 
   const keep = <T>(xs: T[], n: number) => (options.full ? xs : xs.slice(0, n))
   return {
-    claims: claims.map(c => ({ sid: c.sid, pClaim: c.pClaim, role: c.role, ranked: keep(c.ranked, OUT_RANKED) })),
+    claims: claims.map(c => ({ sid: c.sid, pClaim: c.pClaim, role: c.shown, ranked: keep(c.ranked, OUT_RANKED) })),
     caveats: keep(caveats, OUT_CAVEATS).map(([s, v, t]) => [s, v, t === 'none' || t === null ? null : (t as CaveatType)]),
   }
 }

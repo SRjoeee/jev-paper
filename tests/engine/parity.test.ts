@@ -24,7 +24,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { digest } from '@/background/engine/pipeline'
+import { digest, roleOf } from '@/background/engine/pipeline'
 import type { Answer, Answers, Question, Questions } from '@/background/jev/wire'
 import type { CaveatType, Role } from '@/shared/result'
 import type { Unit } from '@/shared/units'
@@ -99,7 +99,10 @@ interface Asked {
   keys: string[]
   /** Question count of each round-two request (the state with `candidates`) */
   roundTwo: number[]
+  /** The role answers served, by question id */
+  roles: Map<string, Answer>
 }
+const asking = (): Asked => ({ keys: [], roundTwo: [], roles: new Map() })
 
 /** An ask that answers each question of a request from the index — the preferred answer where the record holds
  *  several — and records what it was asked */
@@ -114,6 +117,7 @@ function replay(ix: Index, preferred: Map<string, Answer>, asked: Asked) {
       const answer = recorded.length === 1 ? recorded[0] : preferred.get(key)
       if (!answer) throw new Error(`${recorded.length} recorded answers for ${id} and none preferred`)
       asked.keys.push(key)
+      if (id.startsWith('role_')) asked.roles.set(id, answer)
       out[id] = structuredClone(answer)
     }
     if (typeof state === 'object' && state !== null && 'candidates' in state) asked.roundTwo.push(Object.keys(questions).length)
@@ -161,8 +165,16 @@ const shape = (c: { sid: string; pClaim: number; role: Role | string | null; ran
 const noneToNull = (t: string | null): CaveatType | null => (t === 'none' || t === null ? null : (t as CaveatType))
 const count = (xs: string[]): Map<string, number> => xs.reduce((m, x) => m.set(x, (m.get(x) ?? 0) + 1), new Map<string, number>())
 
+/** The experiment's `final` has no role gate: its claims carry the role answer's `choice`. JevPaper's gate is applied
+ *  to the same recorded role answer, so the comparison stays exact. */
+function gated(claim: ExperimentClaim, roles: Map<string, Answer>): ExperimentClaim {
+  const answer = roles.get(`role_${claim.sid}`)
+  if (answer?.type !== 'choice') throw new Error(`no role answer for ${claim.sid}`)
+  return { ...claim, role: roleOf(answer.probabilities).shown }
+}
+
 /** Across the corpus, for the checks that the replay exercised what it claims to */
-const corpusWide = { papers: 0, roundTwoOver55: 0 }
+const corpusWide = { papers: 0, roundTwoOver55: 0, shown: 0, hidden: 0 }
 
 describe.skipIf(!present)('parity with the experiment', () => {
   const corpus: { id: string }[] = present ? (JSON.parse(readFileSync(join(DIR, 'corpus.json'), 'utf8')) as { id: string }[]) : []
@@ -177,15 +189,19 @@ describe.skipIf(!present)('parity with the experiment', () => {
       const byRequestAsk = byRequest(cacheDir, preferred)
       const reference = await VARIANTS.final.run(doc, async (state, questions) => ({ answers: await byRequestAsk(state, questions) }))
 
-      const port: Asked = { keys: [], roundTwo: [] }
-      const experiment: Asked = { keys: [], roundTwo: [] }
+      const port = asking()
+      const experiment = asking()
       const got = await digest({ title: doc.title, units: doc.units }, replay(ix, preferred, port), { fixes: false })
       const ask = replay(ix, preferred, experiment)
       const expected = await VARIANTS.final.run(doc, async (state, questions) => ({ answers: await ask(state, questions) }))
 
       // The per-question replay feeds the experiment exactly what the request replay did
       expect(expected).toEqual(reference)
-      expect(got.claims.map(shape)).toEqual(expected.claims.map(shape))
+      expect(got.claims.map(shape)).toEqual(expected.claims.map(c => shape(gated(c, experiment.roles))))
+      // The pick wording: for every kept claim, the experiment's role (the answer's choice) is the top non-background
+      // role the port words the pick by (a different wording would also have missed the record)
+      const kept = expected.claims.filter(c => c.pClaim >= 0.5)
+      for (const c of kept) expect(c.role, c.sid).toBe(roleOf((experiment.roles.get(`role_${c.sid}`) as Extract<Answer, { type: 'choice' }>).probabilities).top)
       expect(got.caveats).toEqual(expected.caveats.slice(0, 40).map(([s, v, t]) => [s, v, noneToNull(t)]))
 
       // Not vacuous: both engines asked the very same questions, every one answered from the record, and round two
@@ -201,14 +217,18 @@ describe.skipIf(!present)('parity with the experiment', () => {
       expect(Math.max(...port.roundTwo)).toBeLessThanOrEqual(110)
       corpusWide.papers++
       if (Math.max(...port.roundTwo) > 55) corpusWide.roundTwoOver55++
+      for (const c of got.claims.filter(c => c.pClaim >= 0.5)) corpusWide[c.role === null ? 'hidden' : 'shown']++
     }, 60_000)
   }
 
-  it('replayed the whole corpus, with round-two parts larger than the experiment could send', () => {
+  it('replayed the whole corpus, with round-two parts larger than the experiment could send and a role gate that bit', () => {
     const ix = indexOf(join(DIR, 'cache'))
     expect(ix.requests).toBeGreaterThan(0)
     expect(ix.answers.size).toBeGreaterThan(0)
     expect(corpusWide.papers).toBe(corpus.length)
     expect(corpusWide.roundTwoOver55).toBeGreaterThan(0)
+    // The role gate both showed and withheld roles, so the gated comparison is not trivially all-null or all-shown
+    expect(corpusWide.shown).toBeGreaterThan(0)
+    expect(corpusWide.hidden).toBeGreaterThan(0)
   })
 })

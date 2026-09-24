@@ -4,7 +4,7 @@ import type { DigestResult } from '@/shared/result'
 
 const result: DigestResult = {
   claims: [
-    { sid: 's001', pClaim: 0.1, role: 'background', ranked: [['s050', 0.9]] },
+    { sid: 's001', pClaim: 0.1, role: null, ranked: [['s050', 0.9]] },
     { sid: 's002', pClaim: 0.9, role: 'method', ranked: [['s020', 0.8], ['s021', 0.5], ['s022', 0.4], ['s023', 0.3]] },
     { sid: 's003', pClaim: 0.8, role: 'result', ranked: [['s020', 0.7], ['s030', 0.6], ['s021', 0.2]] },
   ],

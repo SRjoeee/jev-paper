@@ -1,3 +1,4 @@
+import type { ClaimRole } from '@/shared/result'
 import { choice, type Question, yesno } from '../jev/wire'
 
 export const ROLE: Record<string, string> = {
@@ -26,13 +27,15 @@ export const existsQuestion = (sid: string): Question => yesno(`Does \`section.s
 
 export const caveatQuestion = (sid: string): Question => choice(`What kind of statement is \`passage.${sid}\`, as a statement about this paper’s own work?`, CAVEAT)
 
-const PICK: Record<string, (a: string) => string> = {
+const PICK: Record<ClaimRole, (a: string) => string> = {
   method: a => `Which of these sentences explains most specifically how the method in \`abstract.${a}\` works — its defining mechanism or definition — rather than an overview, a restatement of the claim, or an experimental result?`,
   result: a => `Which of these sentences reports the result claimed in \`abstract.${a}\` — the finding with its numbers, comparison or theorem — rather than a restatement of the claim, a figure caption, or the setup of an experiment?`,
   contribution: a => `Which of these sentences delivers what \`abstract.${a}\` announces — the analysis, finding or artefact itself — rather than a restatement of the claim or a plan?`,
 }
 
-export const pickQuestion = (role: string | null, sid: string, ids: Record<string, null>): Question => choice((PICK[role ?? ''] ?? PICK.contribution!)(sid), ids)
+/** Worded by the claim's top non-background role (pipeline.ts `roleOf`); the experiment fell back to the
+ *  contribution wording for a claim it took as background, which a kept claim never was on the corpus */
+export const pickQuestion = (role: ClaimRole, sid: string, ids: Record<string, null>): Question => choice(PICK[role](sid), ids)
 
 export const verifyQuestion = (claim: string, s: string): Question =>
   yesno(`Does \`candidates.${s}\` state the substance of \`abstract.${claim}\` — its mechanism, or its result with numbers or a theorem — rather than only setting up an experiment, restating the claim, or mentioning it?`)
