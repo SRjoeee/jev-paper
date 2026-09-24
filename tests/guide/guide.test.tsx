@@ -20,11 +20,25 @@ describe('guide', () => {
     expect(cta.getAttribute('href')).toBe('https://arxiv.org/html/1706.03762')
     expect(cta.hasAttribute('target')).toBe(false)
   })
+
+  it('lights every legend swatch, reusing the shared layer-row styles', async () => {
+    const el = document.createElement('div')
+    document.body.append(el)
+    await act(async () => createRoot(el).render(<Guide />))
+    for (const stroke of el.querySelectorAll('.legend .stroke')) expect(stroke.closest('[data-lit]')).not.toBeNull()
+  })
 })
 
 describe('scripts/icons.mjs', () => {
   it('keeps the toolbar glyph in sync with the in-page highlighter icon', () => {
     const script = readFileSync(join(import.meta.dirname, '../../scripts/icons.mjs'), 'utf8')
     expect(script).toContain(HIGHLIGHTER_PATHS)
+  })
+})
+
+describe('src/entrypoints/guide/index.html', () => {
+  it('carries no Chinese text outside copy.ts', () => {
+    const html = readFileSync(join(import.meta.dirname, '../../src/entrypoints/guide/index.html'), 'utf8')
+    expect(html).not.toMatch(/[一-鿿]/)
   })
 })

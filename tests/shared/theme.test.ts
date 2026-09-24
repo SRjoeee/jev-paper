@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyTheme } from '@/entrypoints/popup/theme'
+import { applyTheme } from '@/shared/theme'
 
 /** A minimal, controllable stand-in for `MediaQueryList`: one listener, a mutable `matches` */
 function fakeMql(initial: boolean) {

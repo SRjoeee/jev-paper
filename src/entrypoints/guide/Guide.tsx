@@ -15,7 +15,7 @@ export function Guide() {
         <h2 id="g-colors">{COPY.guide.colors}</h2>
         <ul className="legend">
           {LAYERS.map(layer => (
-            <li key={layer.level}>
+            <li key={layer.level} data-lit>
               <span className="stroke" aria-hidden="true">
                 {layer.tones.map(t => (
                   <i key={t} style={{ background: `var(--jp-${t})` }} />

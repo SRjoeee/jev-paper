@@ -1,9 +1,9 @@
 import '@/shared/tokens.css'
 import '@/shared/layers.css'
 import './popup.css'
+import { applyTheme } from '@/shared/theme'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { applyTheme } from './theme'
 
 document.body.classList.add('jp-theme')
 applyTheme(document.body, matchMedia('(prefers-color-scheme: dark)'))

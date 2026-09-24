@@ -7,7 +7,7 @@
 .row:focus-visible { outline-offset: 2px; }
 @media (hover: hover) { .row:hover { background: var(--jp-hover); } }
 .stroke { display: inline-flex; gap: 2px; opacity: 0.42; filter: saturate(0.5); }
-.row[data-lit] .stroke { opacity: 1; filter: none; }
+[data-lit] .stroke { opacity: 1; filter: none; }
 .stroke i { display: block; width: 9px; height: 10px; border-radius: 2px 5px 2px 5px; }
 .stroke i:only-child { width: 20px; }
 @media (prefers-reduced-motion: no-preference) {

@@ -11,9 +11,7 @@ h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--jp-text-m
 .legend li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; align-items: start; }
 .legend strong { display: block; font-weight: 500; }
 .legend .note { display: block; font-size: 13px; color: var(--jp-text-muted); }
-.stroke { display: inline-flex; gap: 2px; margin-top: 6px; }
-.stroke i { display: block; width: 9px; height: 10px; border-radius: 2px 5px 2px 5px; }
-.stroke i:only-child { width: 20px; }
+.legend .stroke { margin-top: 6px; }
 .tips { padding-inline-start: 20px; }
 .primary { justify-self: start; min-height: 44px; padding: 0 20px; border-radius: 12px; display: inline-flex; align-items: center; background: var(--jp-ink); color: var(--jp-on-ink); font-weight: 500; text-decoration: none; }
 .primary:focus-visible { outline-offset: 2px; }
