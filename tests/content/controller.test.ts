@@ -164,6 +164,33 @@ describe('createController', () => {
     }
   })
 
+  // Spec §5.4 "Scrolling hides the tip" (found in the Task 14 e2e): not after the pointer-leave delay, which a smooth
+  // jump's stream of scroll events kept restarting — the tip hung over the page, pointing at nothing, for the whole jump
+  it('scrolling hides the tip, the hover colour and the pointer at once, and the same mark can show its tip again', async () => {
+    vi.useFakeTimers()
+    try {
+      const h = harness({}, [{ ok: true, result: RESULT, cached: false }])
+      await h.c.start()
+      const rect = { top: 0, bottom: 10 } as DOMRect
+      h.c.hover({ index: 0, rect }, 10)
+      h.c.hover(null, 0) // a leave delay pending when the scroll starts
+      h.ui.hideTip.mockClear()
+      h.c.scrolled()
+      expect(h.ui.hideTip).toHaveBeenCalledTimes(1)
+      expect(h.layer.setHot).toHaveBeenLastCalledWith(null)
+      expect(h.ui.setPointer).toHaveBeenLastCalledWith(false)
+      h.ui.showTip.mockClear()
+      h.c.hover({ index: 0, rect }, 10)
+      expect(h.ui.showTip).toHaveBeenCalledTimes(1)
+      // The leave delay pending before the scroll was dropped: it does not hide the tip just shown
+      h.ui.hideTip.mockClear()
+      vi.advanceTimersByTime(500)
+      expect(h.ui.hideTip).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // Fix round 1, finding 2: nothing must run after destroy(), and a rejected digest must not become an
   // unhandled rejection.
   it('destroy() while the digest is pending stops the run from touching the torn-down layer and ui', async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hitTest, Interaction } from '@/content/interaction'
 
 const range = (rects: [number, number, number, number][]) =>
@@ -22,9 +22,15 @@ describe('hitTest', () => {
 })
 
 describe('Interaction.handleClick', () => {
+  // Each instance listens on the shared document: remove it, or later tests hear its handlers too
+  const made: Interaction[] = []
+  afterEach(() => {
+    for (const i of made.splice(0)) i.destroy()
+  })
   const setup = () => {
     const onActivate = vi.fn()
-    const i = new Interaction({ doc: document, marks: () => [{ tone: 'claim', ranges: [range([[100, 116, 10, 200]])] }], onHover: () => {}, onActivate })
+    const i = new Interaction({ doc: document, marks: () => [{ tone: 'claim', ranges: [range([[100, 116, 10, 200]])] }], onHover: () => {}, onScroll: () => {}, onActivate })
+    made.push(i)
     return { i, onActivate }
   }
   it('a click on a mark activates it', () => {
@@ -42,5 +48,33 @@ describe('Interaction.handleClick', () => {
     document.body.innerHTML = '<a href="#x">[57]</a>'
     expect(i.handleClick(50, 108, document.querySelector('a'), true)).toBe(false)
     expect(onActivate).not.toHaveBeenCalled()
+  })
+})
+
+// Spec §5.4 "Scrolling hides the tip" (found in the Task 14 e2e): a scroll used to reach the controller as a pointer
+// leave, so the tip waited out the 220 ms leave delay after the *last* scroll event and hung over the page for a whole
+// smooth jump; and a hover still waiting for its frame then re-showed the tip of the mark just clicked
+describe('Interaction scrolling', () => {
+  it('a scroll reports itself at once and drops a hover still waiting for its frame', () => {
+    const onHover = vi.fn()
+    const onScroll = vi.fn()
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 7)
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+    try {
+      const i = new Interaction({ doc: document, marks: () => [{ tone: 'claim', ranges: [range([[100, 116, 10, 200]])] }], onHover, onScroll, onActivate: () => {} })
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 108 }))
+      expect(raf).toHaveBeenCalledTimes(1)
+      window.dispatchEvent(new Event('scroll'))
+      expect(onScroll).toHaveBeenCalledTimes(1)
+      expect(cancel).toHaveBeenCalledWith(7)
+      expect(onHover).not.toHaveBeenCalled()
+      // The next pointer move is heard again
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 108 }))
+      expect(raf).toHaveBeenCalledTimes(2)
+      i.destroy()
+    } finally {
+      raf.mockRestore()
+      cancel.mockRestore()
+    }
   })
 })

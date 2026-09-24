@@ -34,6 +34,7 @@ export default defineContentScript({
       doc: document,
       marks: () => controller.paintedMarks(),
       onHover: (hit, x) => controller.hover(hit, x),
+      onScroll: () => controller.scrolled(),
       onActivate: index => controller.activate(index),
     })
     const listener = answer({ 'page-status': async () => controller.status() })

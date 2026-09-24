@@ -35,6 +35,8 @@ export interface InteractionDeps {
   doc: Document
   marks: () => readonly { tone: Tone; ranges: Range[] }[]
   onHover: (hit: Hit | null, x: number) => void
+  /** The page scrolled: the tip no longer sits by its mark (spec §5.4, "Scrolling hides the tip") */
+  onScroll: () => void
   onActivate: (index: number) => void
 }
 
@@ -57,7 +59,12 @@ export class Interaction {
       if (ours(e)) return
       this.handleClick(e.clientX, e.clientY, e.target as Element | null, doc.getSelection()?.isCollapsed ?? true)
     }
-    const scroll = () => deps.onHover(null, 0)
+    // A hover still waiting for its frame holds the pointer's old coordinates — after a jump, the mark just clicked
+    const scroll = () => {
+      if (this.frame) view.cancelAnimationFrame(this.frame)
+      this.frame = 0
+      deps.onScroll()
+    }
     doc.addEventListener('mousemove', move, { passive: true })
     doc.addEventListener('click', click)
     view.addEventListener('scroll', scroll, { passive: true })

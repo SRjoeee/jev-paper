@@ -123,6 +123,13 @@ export function createController(deps: ControllerDeps) {
     ui.setAnchors(anchors)
   }
 
+  function unhover(): void {
+    tipTarget = null
+    layer.setHot(null)
+    ui.hideTip()
+    ui.setPointer(false)
+  }
+
   function paint(): void {
     if (!result) return
     marks = marksFor(result, settings.level).filter(m => page.ranges.has(m.sid))
@@ -195,12 +202,9 @@ export function createController(deps: ControllerDeps) {
     hover(hit: Hit | null, x: number): void {
       clearTimeout(hideTimer)
       if (!hit) {
+        // A grace period to move the pointer from the mark onto its tip
         hideTimer = window.setTimeout(() => {
-          if (ui.isOverTip()) return
-          tipTarget = null
-          layer.setHot(null)
-          ui.hideTip()
-          ui.setPointer(false)
+          if (!ui.isOverTip()) unhover()
         }, 220)
         return
       }
@@ -210,6 +214,11 @@ export function createController(deps: ControllerDeps) {
       layer.setHot(hit.index)
       ui.showTip(tipText(mark), { x, top: hit.rect.top, bottom: hit.rect.bottom }, mark.tone !== 'caveat')
       ui.setPointer(mark.tone !== 'caveat')
+    },
+    /** Spec §5.4: scrolling hides the tip at once — it is fixed to the viewport and would point at nothing */
+    scrolled(): void {
+      clearTimeout(hideTimer)
+      unhover()
     },
     activate: (index: number): void => jump(index, false),
     destroy(): void {
