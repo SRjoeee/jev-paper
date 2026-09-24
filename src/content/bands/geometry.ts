@@ -73,10 +73,13 @@ export function layoutBands(marks: readonly MarkGeometry[], origin: { left: numb
   const work: Work[] = []
   for (const m of marks) {
     const lh = m.lineHeight ?? m.glyph * 1.45
+    // Consecutive lines meet; two lines more than a line height apart have something between them — the display
+    // equation a sentence runs on through, whose box is not the mark's (§5.3) — and each ends as a last or first line
+    const meets = (a: Box | undefined, b: Box | undefined): boolean => !!a && !!b && b.top - a.bottom <= lh
     m.lines.forEach((l, k) => {
       const cy = (l.top + l.bottom) / 2
-      const prev = m.lines[k - 1]
-      const next = m.lines[k + 1]
+      const prev = meets(m.lines[k - 1], l) ? m.lines[k - 1] : undefined
+      const next = meets(l, m.lines[k + 1]) ? m.lines[k + 1] : undefined
       work.push({
         mark: m.mark,
         tone: m.tone,
@@ -85,8 +88,8 @@ export function layoutBands(marks: readonly MarkGeometry[], origin: { left: numb
         bottom: next ? (l.bottom + next.top) / 2 : cy + lh / 2,
         left: l.left - PAD_X,
         right: l.right + PAD_X,
-        first: k === 0,
-        last: k === m.lines.length - 1,
+        first: !prev,
+        last: !next,
         joinL: false,
         joinR: false,
       })

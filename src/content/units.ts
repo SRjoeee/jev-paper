@@ -1,10 +1,11 @@
 // Sentence units cut from the live page: Read arXiv's extractor finds the blocks, its serialiser turns each into
 // wire text with a DOM map, its splitter cuts sentences, and rangesOf maps every sentence back to exact Ranges.
+// A sentence runs on through a display equation between two paragraphs of one .ltx_para, as `[equation]`.
 import { extract, type Block } from '@/core/extractor'
 import { nodeOffsetAt, rangesOf, serialize, type WireSpan } from '@/core/protector'
 import { ANNOTATION_SELECTOR, DOCUMENT_TITLE, NOTE, documentRoot } from '@/core/rules/latexml'
 import { sentenceCuts, visibleTextOf } from '@/core/sentences'
-import { ELEMENT_NODE } from '@/core/text'
+import { ELEMENT_NODE, LETTER, TEXT_NODE } from '@/core/text'
 import type { Unit, UnitKind } from '@/shared/units'
 
 export interface PageUnits {
@@ -19,6 +20,13 @@ const KEEP = new Set(['p', 'caption', 'footnote', 'item', 'intertext'])
 const OUTSIDE = `.ltx_bibliography, .ltx_acknowledgements, ${NOTE.frontmatter}`
 const SECTION = 'section.ltx_section, section.ltx_appendix'
 const EQUATION = 'table.ltx_equation, table.ltx_eqn_table, .ltx_equationgroup'
+/**
+ * A display equation standing on its own between paragraphs, as LaTeXML writes `div.ltx_para > p + table + p`; in an
+ * inline context (a TikZ picture's text) the same equation is a `span.ltx_equation.ltx_eqn_table`
+ */
+const DISPLAY = `${EQUATION}, .ltx_equation, .ltx_eqn_table, math[display="block"]`
+/** What a sentence ends on, perhaps inside closing quotes or brackets; one ending otherwise runs on into an equation */
+const TERMINAL = /[.?!]['"’”)\]]*$/
 /** Inline TeX longer than this reads as noise to the engine; the experiment's units used the same cut */
 const MATH_LIMIT = 60
 
@@ -104,8 +112,25 @@ function proseBlocks(doc: Document): Block[] | null {
   })
 }
 
-/** Cut one block into sentences, appending to `units` and `ranges` */
-function cutBlock(block: Block, units: Unit[], ranges: Map<string, Range[]>): void {
+/** One sentence of a block, not yet numbered; its Ranges are made only if it becomes (part of) a unit */
+interface Piece {
+  text: string
+  /** Letters of its own. A piece without is never a unit alone (a `.` left after an equation), only part of one */
+  letters: boolean
+  ranges: () => Range[]
+}
+
+/** One block's sentences in order, letterless pieces included, so a sentence running on can take one */
+interface Cut {
+  el: Element
+  /** Only a paragraph runs on through an equation: never a caption, a footnote, a list item or an \intertext row */
+  paragraph: boolean
+  meta: Pick<Unit, 'kind' | 'sec' | 'secTitle' | 'pid'>
+  pieces: Piece[]
+}
+
+/** Cut one block into sentences */
+function cutBlock(block: Block): Cut {
   const el = block.el
   const kind = kindOf(block)
   const [sec, secTitle] = kind === 'abstract' ? ['abstract', 'Abstract'] : sectionOf(el)
@@ -131,16 +156,127 @@ function cutBlock(block: Block, units: Unit[], ranges: Map<string, Range[]>): vo
         }),
         wire.text.length,
       ]
+  const pieces: Piece[] = []
   for (let i = 0; i < cuts.length - 1; i++) {
     const [from, to] = trimmed(wire.text, cuts[i]!, cuts[i + 1]!)
     if (to <= from) continue
     const text = textBetween(wire.offsets, from, to)
-    if (!/[A-Za-z]{2}/.test(text)) continue
-    const sid = `s${String(units.length + 1).padStart(3, '0')}`
-    const unit: Unit = { sid, kind, sec, secTitle, pid, text }
-    if (isList(text)) unit.list = true
-    units.push(unit)
-    ranges.set(sid, rangesOf(wire.offsets, from, to))
+    if (!text) continue
+    pieces.push({ text, letters: /[A-Za-z]{2}/.test(text), ranges: () => rangesOf(wire.offsets, from, to) })
+  }
+  return { el, paragraph: block.unit === 'p', meta: { kind, sec, secTitle, pid }, pieces }
+}
+
+/** Is `node` nothing but a display equation, or nothing at all (whitespace, a comment)? The count of equations it adds, or -1 */
+function equationsIn(node: Node): number {
+  if (node.nodeType === ELEMENT_NODE) return (node as Element).matches(DISPLAY) ? 1 : -1
+  if (node.nodeType === TEXT_NODE) return /\S/.test((node as Text).data) ? -1 : 0
+  return 0
+}
+
+/**
+ * How many display equations stand between two paragraphs of one .ltx_para (`p + table.ltx_equation + p`), or
+ * 0 when they are not such neighbours or anything else stands between them.
+ */
+function equationsBetween(a: Element, b: Element): number {
+  if (a.parentElement !== b.parentElement || !a.parentElement?.closest('.ltx_para')) return 0
+  let n = 0
+  for (let node = a.nextSibling; node !== b; node = node.nextSibling) {
+    const k = node ? equationsIn(node) : -1
+    if (!node || k < 0) return 0
+    n += k
+  }
+  return n
+}
+
+/**
+ * How many display equations follow a paragraph to the end of its .ltx_para, or 0 when anything else follows it.
+ * After an equation, a paragraph without a letter (the `∎` closing a proof) is nothing.
+ */
+function equationsToEnd(a: Element): number {
+  if (!a.parentElement?.matches('.ltx_para')) return 0
+  let n = 0
+  for (let node = a.nextSibling; node; node = node.nextSibling) {
+    const k = equationsIn(node)
+    if (k < 0 && !(n > 0 && !LETTER.test(visibleTextOf(node)))) return 0
+    n += Math.max(k, 0)
+  }
+  return n
+}
+
+/** A sentence not yet numbered: the last one cut, which the next paragraph may still continue, or a footnote held behind it */
+interface Open {
+  meta: Cut['meta']
+  paragraph: boolean
+  /** The block its text last came from, where a continuation has to start */
+  el: Element
+  text: string
+  letters: boolean
+  ranges: (() => Range[])[]
+}
+
+const open = (cut: Cut, piece: Piece): Open => ({ meta: cut.meta, paragraph: cut.paragraph, el: cut.el, text: piece.text, letters: piece.letters, ranges: [piece.ranges] })
+
+/** `[equation]` once per equation, as the experiment's units wrote display maths inside a sentence */
+const withEquations = (text: string, n: number, after = '') => squash(`${text}${' [equation]'.repeat(n)} ${after}`)
+
+/**
+ * Numbers sentences block by block. The last sentence of each block is held open: when the next block is the next
+ * paragraph of the same .ltx_para with only display equations between them and the sentence has not ended, the
+ * next block's first sentence continues it — `<A's last> [equation] <B's first>`, A's Ranges then B's, one sid —
+ * and a chain A → equation → B → equation → C stays one sentence. A sentence running into equations that close
+ * its .ltx_para ends `[equation]`. Footnotes inside the open sentence's paragraph are numbered right after it.
+ */
+class Numbering {
+  readonly units: Unit[] = []
+  readonly ranges = new Map<string, Range[]>()
+  private last: Open | null = null
+  private held: Open[] = []
+
+  add(block: Block): void {
+    const cut = cutBlock(block)
+    const last = this.last
+    if (last?.el.contains(cut.el)) {
+      for (const piece of cut.pieces) this.held.push(open(cut, piece))
+      return
+    }
+    let rest = cut.pieces
+    const [head] = rest
+    const n = last?.paragraph && cut.paragraph && head && !TERMINAL.test(last.text) ? equationsBetween(last.el, cut.el) : 0
+    if (last && head && n > 0) {
+      last.text = withEquations(last.text, n, head.text)
+      last.letters ||= head.letters
+      last.ranges.push(head.ranges)
+      last.el = cut.el
+      rest = rest.slice(1)
+      if (rest.length === 0) return
+    }
+    this.flush()
+    rest.forEach((piece, i) => {
+      if (i < rest.length - 1) this.emit(open(cut, piece))
+      else this.last = open(cut, piece)
+    })
+  }
+
+  flush(): void {
+    const last = this.last
+    if (last) {
+      const n = last.paragraph && !TERMINAL.test(last.text) ? equationsToEnd(last.el) : 0
+      if (n > 0) last.text = withEquations(last.text, n)
+      this.emit(last)
+    }
+    for (const note of this.held) this.emit(note)
+    this.last = null
+    this.held = []
+  }
+
+  private emit(s: Open): void {
+    if (!s.letters) return
+    const sid = `s${String(this.units.length + 1).padStart(3, '0')}`
+    const unit: Unit = { sid, kind: s.meta.kind, sec: s.meta.sec, secTitle: s.meta.secTitle, pid: s.meta.pid, text: s.text }
+    if (isList(s.text)) unit.list = true
+    this.units.push(unit)
+    this.ranges.set(sid, s.ranges.flatMap(r => r()))
   }
 }
 
@@ -149,10 +285,10 @@ const titleOf = (doc: Document) => squash(doc.querySelector(DOCUMENT_TITLE)?.tex
 export function pageUnits(doc: Document): PageUnits | null {
   const blocks = proseBlocks(doc)
   if (!blocks) return null
-  const units: Unit[] = []
-  const ranges = new Map<string, Range[]>()
-  for (const block of blocks) cutBlock(block, units, ranges)
-  return { title: titleOf(doc), units, ranges }
+  const numbering = new Numbering()
+  for (const block of blocks) numbering.add(block)
+  numbering.flush()
+  return { title: titleOf(doc), units: numbering.units, ranges: numbering.ranges }
 }
 
 /**
@@ -164,19 +300,19 @@ export async function pageUnitsChunked(doc: Document, slice = 25): Promise<(Page
   let start = performance.now()
   const blocks = proseBlocks(doc)
   if (!blocks) return null
-  const units: Unit[] = []
-  const ranges = new Map<string, Range[]>()
+  const numbering = new Numbering()
   for (const block of blocks) {
-    cutBlock(block, units, ranges)
+    numbering.add(block)
     if (performance.now() - start > slice) {
       busyMs += performance.now() - start
       await new Promise(resolve => setTimeout(resolve, 0))
       start = performance.now()
     }
   }
+  numbering.flush()
   const title = titleOf(doc)
   busyMs += performance.now() - start
-  return { title, units, ranges, busyMs }
+  return { title, units: numbering.units, ranges: numbering.ranges, busyMs }
 }
 
 export async function hashUnits(units: readonly Unit[]): Promise<string> {

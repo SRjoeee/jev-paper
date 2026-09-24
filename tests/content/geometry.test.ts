@@ -27,6 +27,25 @@ describe('layoutBands', () => {
     expect(bands[1]!.radius).toEqual([0, 0, 4, 4])
   })
 
+  it('leaves the display equation a sentence runs on through unpainted: lines apart by more than a line height do not meet', () => {
+    // Two lines of the paragraph before the equation, then the first line of the one after it, 60 px below
+    const bands = layoutBands(
+      [{ mark: 0, tone: 'evidence', lines: [box(100, 116, 10, 300), box(124, 140, 10, 120), box(200, 216, 10, 250)], glyph: 16, lineHeight: 24 }],
+      origin,
+      1,
+    )
+    expect(bands.map(b => [b.top, b.top + b.height])).toEqual([
+      [96, 121],
+      [120, 144],
+      [196, 220],
+    ])
+    expect(bands.map(b => b.radius)).toEqual([
+      [4, 4, 0, 0],
+      [0, 0, 4, 4],
+      [4, 4, 4, 4],
+    ])
+  })
+
   it('joins two same-tone marks on one line at the midpoint of their gap, with square corners at the join', () => {
     const bands = layoutBands(
       [

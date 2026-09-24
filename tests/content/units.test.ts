@@ -209,6 +209,126 @@ describe('pageUnits elsewhere', () => {
   })
 })
 
+/** LaTeXML's display equation between two paragraphs of one `.ltx_para` (1806.07572, S5.p2) */
+const EQ = (id: string) =>
+  `<table id="${id}" class="ltx_equation ltx_eqn_table"><tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline"><td class="ltx_eqn_cell ltx_eqn_center_padleft"></td><td class="ltx_eqn_cell ltx_align_center"><math id="${id}.m1" class="ltx_Math" alttext="C(f)=\\frac{1}{2N}\\sum_{i}(f(x_{i})-y_{i})^{2}." display="block"><semantics><mi>C</mi><annotation encoding="application/x-tex">C(f)=\\frac{1}{2N}\\sum_{i}(f(x_{i})-y_{i})^{2}.</annotation></semantics></math></td><td class="ltx_eqn_cell ltx_eqn_center_padright"></td><td class="ltx_eqn_cell ltx_eqn_eqno"><span class="ltx_tag ltx_tag_equation">(${id})</span></td></tr></tbody></table>`
+
+/** A LaTeXML paper whose first section holds `body` */
+const paper = (body: string) =>
+  new DOMParser().parseFromString(
+    `<html><body><article class="ltx_document"><h1 class="ltx_title ltx_title_document">A Paper</h1><div class="ltx_abstract"><h6 class="ltx_title ltx_title_abstract">Abstract</h6><p class="ltx_p">We study the cost.</p></div><section id="S1" class="ltx_section"><h2 class="ltx_title ltx_title_section">1 Setting</h2>${body}</section></article></body></html>`,
+    'text/html',
+  )
+
+const body = (doc: Document) => pageUnits(doc)!.units.filter(u => u.kind !== 'abstract')
+const texts = (doc: Document) => body(doc).map(u => u.text)
+
+describe('sentences through display equations', () => {
+  // A as a reader sees it (with a formula) and as the unit writes it
+  const A_HTML = 'For a dataset of size <math alttext="N" display="inline"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>, the least-squares regression cost is'
+  const A = 'For a dataset of size $N$, the least-squares regression cost is'
+  const B = 'Theorems 1 and 2 apply to an ANN trained on such a cost.'
+
+  it('runs a paragraph on through the equation after it as one unit', () => {
+    const doc = paper(`<div id="S1.p1" class="ltx_para"><p class="ltx_p">We fix a dataset. ${A_HTML}</p>\n${EQ('1')}\n<p class="ltx_p">${B} A last sentence.</p></div>`)
+    const units = body(doc)
+    expect(units.map(u => u.text)).toEqual(['We fix a dataset.', `${A} [equation] ${B}`, 'A last sentence.'])
+    expect(units.map(u => u.sid)).toEqual(['s002', 's003', 's004'])
+    expect(units.every(u => u.pid === 'S1.p1' && u.sec === 'S1' && u.kind === 'body')).toBe(true)
+  })
+
+  it("gives the merged unit the first paragraph's ranges, then the second's", () => {
+    const doc = paper(`<div id="S1.p1" class="ltx_para"><p id="S1.p1.1" class="ltx_p">We fix a dataset. ${A_HTML}</p>${EQ('1')}<p id="S1.p1.2" class="ltx_p">${B} A last sentence.</p></div>`)
+    const spy = vi.spyOn(doc, 'createRange').mockImplementation(() => rangeRecorder() as unknown as Range)
+    const page = pageUnits(doc)!
+    spy.mockRestore()
+    const merged = page.units.find(u => u.text.includes('[equation]'))!
+    const ranges = page.ranges.get(merged.sid)! as unknown as RangeRecorder[]
+    const inside = (r: RangeRecorder) => (r.start.node!.nodeType === 1 ? (r.start.node as Element) : r.start.node!.parentElement!).closest('.ltx_p')!.id
+    // The first paragraph's ranges first, then the second's
+    expect(ranges.map(inside)).toEqual([...ranges.map(inside)].sort())
+    expect(new Set(ranges.map(inside))).toEqual(new Set(['S1.p1.1', 'S1.p1.2']))
+    expect(squash(ranges.filter(r => inside(r) === 'S1.p1.1').map(coveredText).join(''))).toBe(squash(A.replace('$N$', '')))
+    expect(squash(ranges.filter(r => inside(r) === 'S1.p1.2').map(coveredText).join(''))).toBe(B)
+  })
+
+  it('keeps the cut when the first paragraph ends its sentence', () => {
+    const doc = paper(`<div class="ltx_para"><p class="ltx_p">The cost is defined below.</p>${EQ('1')}<p class="ltx_p">${B}</p></div>`)
+    expect(texts(doc)).toEqual(['The cost is defined below.', B])
+  })
+
+  it('chains through two equations, and writes one [equation] per equation', () => {
+    const doc = paper(
+      `<div class="ltx_para"><p class="ltx_p">${A_HTML}</p>${EQ('1')}<p class="ltx_p">where <math alttext="x_{i}" display="inline"><mi>x</mi></math> are the inputs, and the gradient is</p>${EQ('2')}${EQ('3')}<p class="ltx_p">${B}</p></div>`,
+    )
+    expect(texts(doc)).toEqual([`${A} [equation] where $x_{i}$ are the inputs, and the gradient is [equation] [equation] ${B}`])
+  })
+
+  it('never runs on into another .ltx_para', () => {
+    const doc = paper(`<div class="ltx_para"><p class="ltx_p">${A_HTML}</p></div>${EQ('1')}<div class="ltx_para"><p class="ltx_p">${B}</p></div>`)
+    expect(texts(doc)).toEqual([A, B])
+  })
+
+  it('never runs a caption on into a paragraph', () => {
+    const inFigure = paper(`<div class="ltx_para"><figure class="ltx_figure"><figcaption class="ltx_caption">Figure 1: The cost of the network</figcaption></figure>${EQ('1')}<p class="ltx_p">${B}</p></div>`)
+    expect(texts(inFigure)).toEqual(['Figure 1: The cost of the network', B])
+    const beside = paper(`<div class="ltx_para"><span class="ltx_caption">Figure 1: The cost of the network</span>${EQ('1')}<p class="ltx_p">${B}</p></div>`)
+    expect(texts(beside)).toEqual(['Figure 1: The cost of the network', B])
+  })
+
+  it('ends a sentence on the equations that close its .ltx_para, and not one that already ended', () => {
+    expect(texts(paper(`<div class="ltx_para"><p class="ltx_p">${A_HTML}</p>${EQ('1')}</div>`))).toEqual([`${A} [equation]`])
+    expect(texts(paper(`<div class="ltx_para"><p class="ltx_p">The cost is below.</p>${EQ('1')}</div>`))).toEqual(['The cost is below.'])
+    // The `∎` closing a proof is no paragraph of its own (no letter), and does not stop the sentence either
+    expect(texts(paper(`<div class="ltx_para"><p class="ltx_p">${A_HTML}</p>${EQ('1')}<p class="ltx_p">∎</p></div>`))).toEqual([`${A} [equation]`])
+  })
+
+  it('takes a lone full stop after the equation as the end of the sentence', () => {
+    const doc = paper(`<div class="ltx_para"><p class="ltx_p">${A_HTML}</p>${EQ('1')}<p class="ltx_p">. Next we train the network.</p>${EQ('2')}<p class="ltx_p">${B}</p></div>`)
+    expect(texts(doc)).toEqual([`${A} [equation].`, 'Next we train the network.', B])
+  })
+
+  it("numbers a footnote in the first paragraph after the sentence it runs on into", () => {
+    const note = '<span class="ltx_note ltx_role_footnote"><sup class="ltx_note_mark">1</sup><span class="ltx_note_outer"><span class="ltx_note_content"><sup class="ltx_note_mark">1</sup>The cost is also called the empirical risk.</span></span></span>'
+    const doc = paper(`<div class="ltx_para"><p class="ltx_p">${A_HTML}${note}</p>${EQ('1')}<p class="ltx_p">${B} A last sentence.</p></div>`)
+    expect(body(doc).map(u => [u.kind, u.text])).toEqual([
+      ['body', `${A} [equation] ${B}`],
+      ['footnote', 'The cost is also called the empirical risk.'],
+      ['body', 'A last sentence.'],
+    ])
+  })
+
+  it('the chunked cut runs on through equations the same way', async () => {
+    const doc = paper(`<div class="ltx_para"><p class="ltx_p">${A_HTML}</p>${EQ('1')}<p class="ltx_p">${B}</p></div>`)
+    expect((await pageUnitsChunked(doc, 0))!.units).toEqual(pageUnits(doc)!.units)
+  })
+
+  it('on 2312.17141, no sentence stops short of an equation in its .ltx_para without ending', () => {
+    const doc = load('arxiv/2312.17141.html')
+    const spy = vi.spyOn(doc, 'createRange').mockImplementation(() => rangeRecorder() as unknown as Range)
+    const page = pageUnits(doc)!
+    spy.mockRestore()
+    const DISPLAY = '.ltx_equation, .ltx_eqn_table, .ltx_equationgroup, math[display="block"]'
+    const equationNext = (p: Element) => {
+      let n = p.nextSibling
+      while (n && n.nodeType === 3 && !/\S/.test((n as Text).data)) n = n.nextSibling
+      return !!n && n.nodeType === 1 && (n as Element).matches(DISPLAY) && !!p.parentElement?.closest('.ltx_para')
+    }
+    // The unit whose last range ends in a paragraph that an equation follows: it stops there
+    const stops = new Map<Element, (typeof page.units)[number]>()
+    // A footnote's ranges end inside the paragraph that holds its mark, and the footnote is numbered after it
+    for (const u of page.units.filter(u => u.kind !== 'footnote')) {
+      const last = (page.ranges.get(u.sid) as unknown as RangeRecorder[]).at(-1)!.end.node!
+      const p = (last.nodeType === 1 ? (last as Element) : last.parentElement!).closest('.ltx_p')
+      if (p) stops.set(p, u)
+    }
+    const short = [...stops].filter(([p]) => equationNext(p)).map(([, u]) => u)
+    expect(short.length).toBeGreaterThan(50)
+    expect(short.filter(u => !/[.?!]['"’”)\]]*$|\[equation\]$/.test(u.text)).map(u => u.text)).toEqual([])
+    expect(page.units.filter(u => /\[equation\] \S/.test(u.text)).length).toBeGreaterThan(50)
+  })
+})
+
 describe('isList', () => {
   it('is true for forty-odd capitalised names and false for prose', () => {
     const names = Array.from({ length: 45 }, (_, i) => `Name${i} Surname${i}`).join(' ')
