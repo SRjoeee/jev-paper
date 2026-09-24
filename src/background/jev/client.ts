@@ -32,6 +32,8 @@ export interface ClientOptions {
 }
 
 const CREDIT = /limit|credit|quota|balance|insufficient/i
+/** The longest wait a server's `Retry-After` can ask for; a longer one is waited this long, then retried */
+const RETRY_AFTER_MAX_S = 30
 
 /** A client serves one digest (digest.ts makes one per run), so the fallback it switches to lasts that digest. */
 export function createClient(endpoint: Endpoint, options: ClientOptions = {}): Ask {
@@ -74,7 +76,8 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
       if (signal?.aborted) throw new JevError('aborted', 'aborted')
       let status = 0
       let text = ''
-      let retryAfter = 0
+      /** Seconds, capped; null when the response carries no `Retry-After` */
+      let retryAfter: number | null = null
       await acquire()
       try {
         const timeout = AbortSignal.timeout(timeoutMs)
@@ -85,10 +88,14 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
           signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         })
         status = res.status
-        retryAfter = Number(res.headers.get('retry-after')) || 0
+        const header = res.headers.get('retry-after')
+        retryAfter = header === null ? null : Math.min(RETRY_AFTER_MAX_S, Number(header) || 0)
         text = await res.text()
       } catch (error) {
         if (signal?.aborted) throw new JevError('aborted', 'aborted')
+        // Also when the headers came and the body did not (a dropped connection, the timeout): a network failure,
+        // retried like any other, never read as a 200 that is not Jev
+        status = 0
         text = String(error)
       } finally {
         release()
@@ -110,6 +117,8 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
       }
       if (status === 401) throw new JevError('invalid-key', text.slice(0, 300))
       if (status === 403) throw new JevError(CREDIT.test(text) ? 'credit' : 'invalid-key', text.slice(0, 300))
+      // OpenRouter's "Insufficient credits" (Ruling 34): final, unless the server says when to try again
+      if (status === 402 && retryAfter === null) throw new JevError('credit', text.slice(0, 300))
       // The pinned model rejected as unknown: the same request once more with the fallback, which every later request
       // of this client asks from the start. Not counted as an attempt; a second rejection falls through to not-jev.
       if (endpoint.fallback && asked !== endpoint.fallback && unknownModel(status, text, asked)) {
@@ -119,13 +128,14 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
         prevStatus = 0
         continue
       }
-      const retryable = status === 0 || status === 408 || status === 429 || status >= 500
+      const retryable = status === 0 || status === 402 || status === 408 || status === 429 || status >= 500
       if (!retryable) throw new JevError('not-jev', `${status} ${text.slice(0, 300)}`)
       // spec §6.1: "a request that draws 503 twice is split" — two 503s *in a row*, not a 503 anywhere in the history
       // (a 500 → 503 sequence keeps retrying at the same size)
       if (status === 503 && prevStatus === 503 && Object.keys(questions).length > 1) throw new Split()
-      if (attempt + 1 >= maxAttempts) throw new JevError(status === 0 ? 'offline' : 'busy', `${status} ${text.slice(0, 300)}`)
-      await sleep(status === 429 && retryAfter > 0 ? retryAfter * 1000 : Math.min(8000, 500 * 2 ** attempt) * (0.7 + random() * 0.6))
+      if (attempt + 1 >= maxAttempts) throw new JevError(status === 0 ? 'offline' : status === 402 ? 'credit' : 'busy', `${status} ${text.slice(0, 300)}`)
+      const told = (status === 429 || status === 402) && retryAfter ? retryAfter * 1000 : 0
+      await sleep(told || Math.min(8000, 500 * 2 ** attempt) * (0.7 + random() * 0.6))
       prevStatus = status
       attempt++
     }

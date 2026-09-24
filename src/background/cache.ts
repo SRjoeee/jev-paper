@@ -34,7 +34,8 @@ export class ResultCache {
   async get(key: string): Promise<DigestResult | undefined> {
     const row = await this.db.results.get(key)
     if (!row) return undefined
-    await this.db.results.update(key, { usedAt: this.now() })
+    // Fire and forget: a read never fails because the disk is too full to note when it happened
+    this.db.results.update(key, { usedAt: this.now() }).catch(() => {})
     return row.result
   }
 

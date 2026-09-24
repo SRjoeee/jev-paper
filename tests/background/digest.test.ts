@@ -144,6 +144,28 @@ describe('createDigestService', () => {
     expect(await service.request({ ...msg, units }, 1)).toEqual({ ok: false, error: 'not-jev' })
   })
 
+  it('delivers a paid result even when storing it fails (a full disk)', async () => {
+    let runs = 0
+    const service = createDigestService({
+      cache: {
+        get: async () => undefined,
+        put: async () => {
+          throw new DOMException('full', 'QuotaExceededError')
+        },
+      },
+      credentials: async () => ({ ...DEFAULT_CREDENTIALS, apiKey: 'k' }),
+      engine: async (_paper, ask) => {
+        runs++
+        await ask({}, {})
+        return RESULT
+      },
+      client: () => async () => ({ answers: {}, model: null }),
+    })
+    expect(await service.request(msg, 1)).toEqual({ ok: true, result: RESULT, cached: false })
+    expect(runs).toBe(1)
+    expect(service.inFlight()).toBe(0)
+  })
+
   it('reports any other failure of the engine as busy', async () => {
     const service = createDigestService({
       cache: { get: async () => undefined, put: async () => {} },

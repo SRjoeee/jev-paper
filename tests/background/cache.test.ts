@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import type Dexie from 'dexie'
+import { describe, expect, it, vi } from 'vitest'
 import { cacheKey, ResultCache } from '@/background/cache'
 import { ENGINE_VERSION } from '@/background/engine/version'
 import { RULES_VERSION } from '@/core/rules/latexml'
@@ -25,6 +26,16 @@ describe('ResultCache', () => {
     expect(await cache.get('b')).toBeUndefined()
     expect(await cache.get('a')).toBeDefined()
     expect(await cache.get('c')).toBeDefined()
+    cache.close()
+  })
+
+  it('still reads a result when noting its use fails (a full disk)', async () => {
+    const cache = new ResultCache(`t-${Math.random()}`)
+    await cache.put('k', result(1))
+    const { db } = cache as unknown as { db: Dexie & { results: Dexie['tables'][number] } }
+    const update = vi.spyOn(db.results, 'update').mockRejectedValue(new DOMException('full', 'QuotaExceededError'))
+    expect(await cache.get('k')).toEqual(result(1))
+    expect(update).toHaveBeenCalledTimes(1)
     cache.close()
   })
 

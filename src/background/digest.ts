@@ -52,7 +52,9 @@ export function createDigestService(deps: DigestDeps) {
         })
         .then(async result => {
           const kept: DigestResult = served.size > 0 ? { ...result, model: [...served].join(', ') } : result
-          await deps.cache.put(key, kept)
+          // Best effort: a paid result is delivered even when it cannot be stored (a full disk's QuotaExceededError).
+          // Awaited all the same, so the flight ends only once the cache can answer the next request.
+          await deps.cache.put(key, kept).catch(() => {})
           return { ok: true as const, result: kept, cached: false }
         })
         // A JevError keeps its code — an answer missing or of the wrong type is not-jev, from the client or the

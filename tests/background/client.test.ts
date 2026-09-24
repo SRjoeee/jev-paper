@@ -85,6 +85,75 @@ describe('createClient', () => {
     await expect(ask({}, { a: yesno('q') })).rejects.toMatchObject({ code: 'credit' })
   })
 
+  it('caps a Retry-After at 30 s', async () => {
+    const waits: number[] = []
+    let calls = 0
+    const ask = createClient(endpoint, { random: () => 0.5, sleep: async ms => { waits.push(ms) }, fetch: async (_u, init) => {
+      calls++
+      return calls === 1 ? json(429, 'slow down', { 'retry-after': '3600' }) : json(200, { answers: answering(JSON.parse(init!.body as string)) })
+    } })
+    await ask({}, { a: yesno('q') })
+    expect(waits).toEqual([30_000])
+  })
+
+  it("reports OpenRouter's 402 (insufficient credits) as used-up credit, without retrying", async () => {
+    let calls = 0
+    const ask = createClient(endpoint, { ...noSleep, fetch: async () => {
+      calls++
+      return json(402, { error: { code: 402, message: 'Insufficient credits. Add more using https://openrouter.ai/credits' } })
+    } })
+    await expect(ask({}, { a: yesno('q') })).rejects.toMatchObject({ code: 'credit' })
+    expect(calls).toBe(1)
+  })
+
+  it('retries a 402 that carries Retry-After like a 429', async () => {
+    const waits: number[] = []
+    let calls = 0
+    const ask = createClient(endpoint, { random: () => 0.5, sleep: async ms => { waits.push(ms) }, fetch: async (_u, init) => {
+      calls++
+      return calls === 1 ? json(402, 'payment required', { 'retry-after': '5' }) : json(200, { answers: answering(JSON.parse(init!.body as string)) })
+    } })
+    const { answers } = await ask({}, { a: yesno('q') })
+    expect(answers.a).toEqual({ type: 'boolean', probability: 0.7 })
+    expect(waits).toEqual([5000])
+  })
+
+  it('gives up on a 402 that keeps carrying Retry-After as used-up credit', async () => {
+    let calls = 0
+    const ask = createClient(endpoint, { ...noSleep, fetch: async () => {
+      calls++
+      return json(402, 'payment required', { 'retry-after': '1' })
+    } })
+    await expect(ask({}, { a: yesno('q') })).rejects.toMatchObject({ code: 'credit' })
+    expect(calls).toBe(6)
+  })
+
+  it('retries a 200 whose body fails to arrive, as a network failure, not as not-jev', async () => {
+    let calls = 0
+    const ask = createClient(endpoint, { ...noSleep, fetch: async (_u, init) => {
+      calls++
+      if (calls > 1) return json(200, { answers: answering(JSON.parse(init!.body as string)) })
+      const body = new ReadableStream({
+        start(c) {
+          c.enqueue(new TextEncoder().encode('{"answers":'))
+          c.error(new TypeError('network error'))
+        },
+      })
+      return new Response(body, { status: 200 })
+    } })
+    const { answers } = await ask({}, { a: yesno('q') })
+    expect(calls).toBe(2)
+    expect(answers.a).toEqual({ type: 'boolean', probability: 0.7 })
+  })
+
+  it('reports a 200 whose body never arrives as offline once the attempts run out', async () => {
+    const ask = createClient(endpoint, { ...noSleep, fetch: async () => {
+      const body = new ReadableStream({ start: c => c.error(new TypeError('network error')) })
+      return new Response(body, { status: 200 })
+    } })
+    await expect(ask({}, { a: yesno('q') })).rejects.toMatchObject({ code: 'offline' })
+  })
+
   it('gives up as offline after six network failures', async () => {
     let calls = 0
     const ask = createClient(endpoint, { ...noSleep, fetch: async () => { calls++; throw new TypeError('fetch failed') } })
