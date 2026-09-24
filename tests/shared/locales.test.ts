@@ -2,21 +2,22 @@ import { describe, expect, it } from 'vitest'
 import type { ResolvedPublicFile, Wxt, WxtHooks } from 'wxt'
 import { copyFor } from '@/shared/copy'
 import config from '../../wxt.config'
-import { DEFAULT_LOCALE, LOCALE_DIRS, localeFiles } from '../../scripts/locales'
+import { DEFAULT_LOCALE, LOCALES, localeFiles } from '../../scripts/locales'
 
 const files = () => Object.fromEntries(localeFiles().map(f => [f.relativeDest, JSON.parse(f.contents)]))
 
 describe('scripts/locales.ts', () => {
-  it('writes one messages.json per language, English as the default locale', () => {
-    expect(Object.keys(files()).sort()).toEqual(['_locales/en/messages.json', '_locales/zh_CN/messages.json'])
-    expect(LOCALE_DIRS.en).toBe(DEFAULT_LOCALE)
+  it('writes English as the default locale, and Chinese for Simplified and Traditional Chinese alike', () => {
+    expect(Object.keys(files()).sort()).toEqual(['_locales/en/messages.json', '_locales/zh_CN/messages.json', '_locales/zh_TW/messages.json'])
+    expect(LOCALES).toEqual({ en: 'en', zh_CN: 'zh', zh_TW: 'zh' })
+    expect(LOCALES[DEFAULT_LOCALE]).toBe('en')
   })
 
   it("holds copy.ts's name and description, and nothing else", () => {
-    for (const lang of ['en', 'zh'] as const) {
-      expect(files()[`_locales/${LOCALE_DIRS[lang]}/messages.json`]).toEqual({ name: { message: copyFor(lang).brand }, description: { message: copyFor(lang).description } })
+    for (const [dir, lang] of Object.entries(LOCALES)) {
+      expect(files()[`_locales/${dir}/messages.json`]).toEqual({ name: { message: copyFor(lang).brand }, description: { message: copyFor(lang).description } })
     }
-    expect(files()['_locales/zh_CN/messages.json'].description.message).toBe('打开 arXiv 论文，重点自动标出来。')
+    for (const dir of ['zh_CN', 'zh_TW']) expect(files()[`_locales/${dir}/messages.json`].description.message).toBe('打开 arXiv 论文，重点自动标出来。')
   })
 })
 

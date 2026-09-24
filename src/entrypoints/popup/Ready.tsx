@@ -19,7 +19,8 @@ async function pageStatus(): Promise<PageStatus | null> {
 function statusLine(status: PageStatus | null): string {
   if (!status || status.state === 'idle') return COPY.status.notPaper
   if (status.state === 'computing') return COPY.status.computing
-  if (status.state === 'error') return COPY.pageError[status.error]
+  // Not the button's pageError: nothing in this row can be clicked
+  if (status.state === 'error') return COPY.status.error[status.error]
   return status.marks ? COPY.status.pageMarked(status.marks) : COPY.status.none
 }
 

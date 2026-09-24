@@ -109,7 +109,7 @@ export function Setup({ initial, onDone }: { initial: Credentials; onDone(): voi
           </div>
           <div className="field">
             <label htmlFor="jp-model">{COPY.setup.modelLabel}</label>
-            <input id="jp-model" type="text" autoComplete="off" spellCheck={false} placeholder="jev-latest" value={model} onChange={e => setModel(e.target.value)} />
+            <input id="jp-model" type="text" autoComplete="off" spellCheck={false} placeholder={COPY.setup.modelPlaceholder} value={model} onChange={e => setModel(e.target.value)} />
           </div>
         </>
       )}

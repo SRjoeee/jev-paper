@@ -22,6 +22,16 @@ const ZH = {
     none: '这篇论文没有找到可标记的内容',
     computing: '正在标记…',
     notPaper: '打开任意 arXiv 论文的 HTML 版即可使用',
+    /** The popup's status line for a page that failed: nothing there to click, unlike the button's `pageError` */
+    error: {
+      'no-key': '还没有设置 key',
+      'invalid-key': 'key 无效，请更换',
+      credit: 'key 的额度用完了，请充值或更换',
+      busy: '服务繁忙，请稍后再试',
+      offline: '连不上服务，请检查网络',
+      'not-jev': '这个地址没有返回 Jev 的结果，请检查设置',
+      aborted: '服务繁忙，请稍后再试',
+    } satisfies Record<ErrorCode, string>,
   },
   role: { method: '方法', result: '结果', contribution: '贡献', background: '背景' } satisfies Record<Role, string>,
   roleFallback: '主张',
@@ -54,6 +64,8 @@ const ZH = {
     endpointLabel: '地址',
     endpointPlaceholder: 'https://example.com/v1/systemone',
     modelLabel: '模型',
+    /** An example model id, the same in every language */
+    modelPlaceholder: 'jev-latest',
     submit: '开始使用',
     errors: {
       empty: '请粘贴 API key',
@@ -86,8 +98,9 @@ const ZH = {
 type Widen<T> = T extends string ? string : T extends (...args: infer A) => infer R ? (...args: A) => Widen<R> : { readonly [K in keyof T]: Widen<T[K]> }
 export type Copy = Widen<typeof ZH>
 
-// English follows .claude/skills/better-writing: sentence case, verbs first on buttons, errors that say how to fix
-const EN_LEDE = 'Open an arXiv paper and its key points are marked for you.'
+// English follows .claude/skills/better-writing: sentence case, verbs first on buttons, errors that say how to fix.
+// A message that is a full sentence, or has more than one clause, ends with a period; a fragment does not.
+const EN_LEDE = 'Open an arXiv paper and its key sentences are marked for you.'
 const EN_CLAIM = 'Claim'
 const marks = (n: number) => (n === 1 ? '1 mark' : `${n} marks`)
 
@@ -102,9 +115,18 @@ const EN = {
   status: {
     marked: (n: number) => `${marks(n)} on this page`,
     pageMarked: (n: number) => `${marks(n)} on this page`,
-    none: 'Found nothing to mark in this paper',
+    none: 'Nothing to mark in this paper',
     computing: 'Marking…',
-    notPaper: 'Open any arXiv paper’s HTML page to start',
+    notPaper: 'Open any arXiv paper’s HTML page to start.',
+    error: {
+      'no-key': 'No API key yet.',
+      'invalid-key': 'This key is invalid. Change it below.',
+      credit: 'This key is out of credit. Add credit, or change it below.',
+      busy: 'The service is busy. Try again soon.',
+      offline: 'Can’t reach the service. Check your network.',
+      'not-jev': 'This endpoint didn’t return a Jev result. Check the settings.',
+      aborted: 'The service is busy. Try again soon.',
+    },
   },
   role: { method: 'Method', result: 'Result', contribution: 'Contribution', background: 'Background' },
   roleFallback: EN_CLAIM,
@@ -120,13 +142,13 @@ const EN = {
     evidence: (no: number) => `Evidence: go back to claim ${no}`,
   },
   pageError: {
-    'no-key': 'No API key yet. Click here to add one',
-    'invalid-key': 'The API key is invalid. Click here to change it',
-    credit: 'The API key is out of credit. Click here to change it',
-    busy: 'The service is busy. Click here to try again',
-    offline: 'Can’t reach the service. Check your network, then click here to try again',
-    'not-jev': 'This endpoint didn’t return a Jev result. Click here to check the settings',
-    aborted: 'The service is busy. Click here to try again',
+    'no-key': 'No API key yet. Click here to add one.',
+    'invalid-key': 'The API key is invalid. Click here to change it.',
+    credit: 'The API key is out of credit. Click here to change it.',
+    busy: 'The service is busy. Click here to try again.',
+    offline: 'Can’t reach the service. Check your network, then click here to try again.',
+    'not-jev': 'This endpoint didn’t return a Jev result. Click here to check the settings.',
+    aborted: 'The service is busy. Click here to try again.',
   },
   setup: {
     providerLabel: 'Service',
@@ -138,22 +160,23 @@ const EN = {
     endpointLabel: 'Endpoint',
     endpointPlaceholder: 'https://example.com/v1/systemone',
     modelLabel: 'Model',
+    modelPlaceholder: 'jev-latest',
     submit: 'Get started',
     errors: {
-      empty: 'Paste your API key',
-      'invalid-key': 'This key is invalid. Check that you copied all of it, or create a new one',
-      credit: 'This key is out of credit. Add credit, or use another key',
-      offline: 'Can’t reach the service. Check your network and try again',
-      'not-jev': 'This endpoint didn’t return a Jev result. Check the endpoint and model name',
-      busy: 'The service is busy. Try again in a moment',
-      permission: 'Allow access to this endpoint to use it',
-      endpoint: 'Enter an endpoint starting with https:// (http:// for localhost) and a model name',
+      empty: 'Paste your API key.',
+      'invalid-key': 'This key is invalid. Check that you copied all of it, or create a new one.',
+      credit: 'This key is out of credit. Add credit, or use another key.',
+      offline: 'Can’t reach the service. Check your network and try again.',
+      'not-jev': 'This endpoint didn’t return a Jev result. Check the endpoint and model name.',
+      busy: 'The service is busy. Try again in a moment.',
+      permission: 'Allow access to this endpoint to use it.',
+      endpoint: 'Enter an endpoint starting with https:// (http:// for localhost) and a model name.',
     },
   },
   ready: { change: 'Change', guideAgain: 'Show guide' },
   guide: {
     title: 'JevPaper is ready',
-    lede: 'Open any arXiv paper’s HTML page, and JevPaper marks its key points right in the text.',
+    lede: 'Open any arXiv paper’s HTML page, and JevPaper marks its key sentences right in the text.',
     colors: 'Three colours',
     colorNotes: {
       1: 'A claim in the abstract, and the sentence in the body that delivers it',

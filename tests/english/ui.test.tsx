@@ -50,10 +50,10 @@ describe('the page UI in English', () => {
   it('an error says how to fix it, as the description and on hover', () => {
     const { ui, $ } = setup()
     ui.setState({ kind: 'error', error: 'offline' })
-    expect($('#jp-desc').textContent).toBe('Can’t reach the service. Check your network, then click here to try again')
+    expect($('#jp-desc').textContent).toBe('Can’t reach the service. Check your network, then click here to try again.')
     ui.setState({ kind: 'attention', error: 'no-key' })
     $('.fab').dispatchEvent(new MouseEvent('mouseenter'))
-    expect($('.tip').textContent).toBe('No API key yet. Click here to add one')
+    expect($('.tip').textContent).toBe('No API key yet. Click here to add one.')
   })
 
   it('the first-run bubble points at the button', () => {
@@ -161,7 +161,7 @@ describe('the popup in English', () => {
 
   it('first open: the lede, the services, a labelled key field, where to get a key, and the button', async () => {
     const el = await render()
-    expect(q(el, '.lede').textContent).toBe('Open an arXiv paper and its key points are marked for you.')
+    expect(q(el, '.lede').textContent).toBe('Open an arXiv paper and its key sentences are marked for you.')
     expect([...el.querySelectorAll('.seg-item')].map(n => n.textContent)).toEqual(['OpenRouter', 'TypeSafe', 'Custom'])
     expect(q(el, 'legend').textContent).toBe('Service')
     expect(q(el, 'label[for="jp-key"]').textContent).toBe('API key')
@@ -174,7 +174,7 @@ describe('the popup in English', () => {
     vi.spyOn(browser.runtime, 'sendMessage').mockImplementation(async () => ({ ok: false, error: 'invalid-key' }))
     const el = await render()
     await act(async () => q<HTMLFormElement>(el, 'form').requestSubmit())
-    expect(q(el, '#jp-error').textContent).toBe('Paste your API key')
+    expect(q(el, '#jp-error').textContent).toBe('Paste your API key.')
     const key = q<HTMLInputElement>(el, '#jp-key')
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(key, 'sk-or-bad')
@@ -182,7 +182,7 @@ describe('the popup in English', () => {
     })
     await act(async () => q<HTMLFormElement>(el, 'form').requestSubmit())
     await act(async () => {})
-    expect(q(el, '#jp-error').textContent).toBe('This key is invalid. Check that you copied all of it, or create a new one')
+    expect(q(el, '#jp-error').textContent).toBe('This key is invalid. Check that you copied all of it, or create a new one.')
   })
 
   it('a custom endpoint: labelled fields, and the endpoint error', async () => {
@@ -190,8 +190,9 @@ describe('the popup in English', () => {
     await act(async () => q<HTMLInputElement>(el, 'input[value="custom"]').click())
     expect(q(el, 'label[for="jp-endpoint"]').textContent).toBe('Endpoint')
     expect(q(el, 'label[for="jp-model"]').textContent).toBe('Model')
+    expect(q<HTMLInputElement>(el, '#jp-model').placeholder).toBe('jev-latest')
     await act(async () => q<HTMLFormElement>(el, 'form').requestSubmit())
-    expect(q(el, '#jp-error').textContent).toBe('Enter an endpoint starting with https:// (http:// for localhost) and a model name')
+    expect(q(el, '#jp-error').textContent).toBe('Enter an endpoint starting with https:// (http:// for localhost) and a model name.')
   })
 
   it('with a key: the layer rows, the page status, and the account and guide buttons', async () => {
@@ -206,13 +207,17 @@ describe('the popup in English', () => {
     expect([...el.querySelectorAll('button.link')].map(b => b.textContent)).toEqual(['Change', 'Show guide'])
   })
 
-  it('off a paper page, and on a page that failed, the status says what to do', async () => {
+  it('off a paper page, and on a page that failed, the status says what to do, never to click', async () => {
     await saveCredentials({ provider: 'openrouter', baseUrl: '', model: '', apiKey: 'k-long-enough-key' })
     vi.spyOn(browser.tabs, 'query').mockImplementation(async () => [{ id: 7 } as never])
     const send = vi.spyOn(browser.tabs, 'sendMessage').mockRejectedValue(new Error('no receiver'))
-    expect(q(await render(), '.status').textContent).toBe('Open any arXiv paper’s HTML page to start')
+    expect(q(await render(), '.status').textContent).toBe('Open any arXiv paper’s HTML page to start.')
     send.mockImplementation(async () => ({ state: 'error', error: 'busy' }))
-    expect(q(await render(), '.status').textContent).toBe('The service is busy. Click here to try again')
+    expect(q(await render(), '.status').textContent).toBe('The service is busy. Try again soon.')
+    send.mockImplementation(async () => ({ state: 'error', error: 'invalid-key' }))
+    expect(q(await render(), '.status').textContent).toBe('This key is invalid. Change it below.')
+    send.mockImplementation(async () => ({ state: 'done', marks: 0 }))
+    expect(q(await render(), '.status').textContent).toBe('Nothing to mark in this paper')
   })
 })
 
@@ -223,7 +228,7 @@ describe('the guide in English', () => {
     document.body.append(el)
     await act(async () => createRoot(el).render(<Guide />))
     expect(el.querySelector('h1')!.textContent).toBe('JevPaper is ready')
-    expect(el.querySelector('.lede')!.textContent).toBe('Open any arXiv paper’s HTML page, and JevPaper marks its key points right in the text.')
+    expect(el.querySelector('.lede')!.textContent).toBe('Open any arXiv paper’s HTML page, and JevPaper marks its key sentences right in the text.')
     expect([...el.querySelectorAll('h2')].map(n => n.textContent)).toEqual(['Three colours', 'How to use it'])
     expect([...el.querySelectorAll('.legend strong')].map(n => n.textContent)).toEqual(['Claims & evidence', 'Assumptions & limits', 'More candidates'])
     expect([...el.querySelectorAll('.legend .note')].map(n => n.textContent)).toEqual([

@@ -64,7 +64,7 @@ describe('copy.ts', () => {
   it('English carries no Chinese; the strings the languages share are names, not words', () => {
     for (const [path, text] of rendered(en)) expect(text, path).not.toMatch(CJK)
     const shared = rendered(en).filter(([path, text]) => rendered(zh).some(([p, t]) => p === path && t === text) && text !== '')
-    expect(shared.map(([path]) => path).sort()).toEqual(['brand', 'setup.endpointPlaceholder', 'setup.keyLabel', 'setup.keyPlaceholder.openrouter', 'setup.providers.openrouter', 'setup.providers.typesafe'])
+    expect(shared.map(([path]) => path).sort()).toEqual(['brand', 'setup.endpointPlaceholder', 'setup.keyLabel', 'setup.keyPlaceholder.openrouter', 'setup.modelPlaceholder', 'setup.providers.openrouter', 'setup.providers.typesafe'])
   })
 
   it('English keeps the agreed terms', () => {
@@ -90,6 +90,26 @@ describe('copy.ts', () => {
     expect(en.status.pageMarked(12)).toBe('12 marks on this page')
     expect(en.status.pageMarked(1)).toBe('1 mark on this page')
     expect(en.status.marked(1)).toBe('1 mark on this page')
+  })
+
+  it('English errors and statuses that are sentences end with a period; fragments do not', () => {
+    const sentences = [...Object.values(en.setup.errors), ...Object.values(en.pageError), ...Object.values(en.status.error), en.status.notPaper]
+    for (const text of sentences) expect(text, text).toMatch(/[^.]\.$/)
+    for (const text of [en.status.none, en.status.pageMarked(12), en.status.marked(1)]) expect(text, text).not.toMatch(/\.$/)
+  })
+
+  it('the popup status for a failed page names the fix and never says to click, in both languages', () => {
+    for (const copy of [zh, en]) {
+      expect(Object.keys(copy.status.error).sort()).toEqual(Object.keys(copy.pageError).sort())
+      for (const text of Object.values(copy.status.error)) expect(text, text).not.toMatch(/click|点这里|点击/i)
+    }
+    expect(en.status.error.aborted).toBe(en.status.error.busy)
+    expect(zh.status.error.aborted).toBe(zh.status.error.busy)
+  })
+
+  it('English calls what is marked sentences, never key points', () => {
+    expect(en.lede).toBe('Open an arXiv paper and its key sentences are marked for you.')
+    for (const [path, text] of rendered(en)) expect(text, path).not.toMatch(/key points?/i)
   })
 
   it('the manifest description stays the popup lede in both languages', () => {

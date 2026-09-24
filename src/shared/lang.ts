@@ -11,7 +11,12 @@ export const LANG_TAG: Record<Lang, string> = { zh: 'zh-CN', en: 'en' }
  * no switch.
  */
 export function uiLang(): Lang {
-  // Node has no extension API: the build reads copy.ts there (wxt.config.ts), and never shows a page
-  const tag = browser?.i18n?.getUILanguage() ?? ''
-  return /^zh(?:[-_]|$)/i.test(tag) ? 'zh' : 'en'
+  try {
+    // Node has no extension API: the build reads copy.ts there (wxt.config.ts), and never shows a page
+    const tag = browser?.i18n?.getUILanguage() ?? ''
+    return /^zh(?:[-_]|$)/i.test(tag) ? 'zh' : 'en'
+  } catch {
+    // Copy is read at module load: an API that throws must not take the page, the popup or the worker down
+    return 'en'
+  }
 }

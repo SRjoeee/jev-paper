@@ -164,6 +164,14 @@ describe('popup', () => {
     expect((await getSettings()).level).toBe(3)
   })
 
+  it('a page that failed: the status names the fix without asking for a click (that is the page button)', async () => {
+    await saveCredentials({ provider: 'openrouter', baseUrl: '', model: '', apiKey: 'k-long-enough-key' })
+    vi.spyOn(browser.tabs, 'query').mockImplementation(async () => [{ id: 7 } as never])
+    vi.spyOn(browser.tabs, 'sendMessage').mockImplementation(async () => ({ state: 'error', error: 'offline' }))
+    const el = await render()
+    expect(q(el, '.status').textContent).toBe('连不上服务，请检查网络')
+  })
+
   it('off a paper page the status says where it works', async () => {
     await saveCredentials({ provider: 'openrouter', baseUrl: '', model: '', apiKey: 'k-long-enough-key' })
     vi.spyOn(browser.tabs, 'query').mockImplementation(async () => [{ id: 7 } as never])

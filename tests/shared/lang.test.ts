@@ -19,6 +19,13 @@ describe('uiLang', () => {
     expect(uiLang()).toBe('en')
   })
 
+  it('falls back to English, and never throws, when Chrome cannot say', () => {
+    fakeBrowser.i18n.getUILanguage = () => {
+      throw new Error('i18n unavailable')
+    }
+    expect(uiLang()).toBe('en')
+  })
+
   it('writes zh-CN or en into lang attributes', () => {
     expect(LANG_TAG).toEqual({ zh: 'zh-CN', en: 'en' })
   })

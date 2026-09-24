@@ -217,9 +217,9 @@ async function noSidewaysScroll(page) {
 await scenario('the manifest takes its name and description from the English and Chinese locales', async () => {
   const manifest = JSON.parse(readFileSync(join(EXT, 'manifest.json'), 'utf8'))
   assert.deepEqual([manifest.default_locale, manifest.name, manifest.description], ['en', '__MSG_name__', '__MSG_description__'])
-  const messages = Object.fromEntries(['en', 'zh_CN'].map(dir => [dir, JSON.parse(readFileSync(join(EXT, '_locales', dir, 'messages.json'), 'utf8'))]))
-  assert.deepEqual([messages.en.name.message, messages.zh_CN.name.message], ['JevPaper', 'JevPaper'])
-  assert.equal(messages.zh_CN.description.message, '打开 arXiv 论文，重点自动标出来。')
+  const messages = Object.fromEntries(['en', 'zh_CN', 'zh_TW'].map(dir => [dir, JSON.parse(readFileSync(join(EXT, '_locales', dir, 'messages.json'), 'utf8'))]))
+  assert.deepEqual([messages.en.name.message, messages.zh_CN.name.message, messages.zh_TW.name.message], ['JevPaper', 'JevPaper', 'JevPaper'])
+  assert.deepEqual([messages.zh_CN.description.message, messages.zh_TW.description.message], ['打开 arXiv 论文，重点自动标出来。', '打开 arXiv 论文，重点自动标出来。'])
   // Chrome loaded the extension and resolved the messages, in whichever language this browser runs
   const self = await worker.evaluate(() => chrome.management.getSelf())
   assert.equal(self.name, 'JevPaper')
@@ -734,7 +734,7 @@ await scenario('English: the popup on first open, and a refused key', async () =
     await page.fill('#jp-key', 'bad')
     await page.click('button[type="submit"]')
     await page.locator('#jp-error').waitFor()
-    assert.equal(await page.textContent('#jp-error'), 'This key is invalid. Check that you copied all of it, or create a new one')
+    assert.equal(await page.textContent('#jp-error'), 'This key is invalid. Check that you copied all of it, or create a new one.')
     await fits(page, ['.seg-item', 'label[for]', 'button[type="submit"]'])
     await noSidewaysScroll(page)
     await page.screenshot({ path: join(SHOTS, 'en-popup-error.png'), fullPage: true })
@@ -751,13 +751,13 @@ await scenario('English: the popup with a key, and the guide', async () => {
   await page.locator('.status .dot').waitFor()
   assert.deepEqual(await page.locator('.row').allTextContents(), ['Claims & evidence', 'Assumptions & limits', 'More candidates'])
   // Opened as a tab, the tab in front is the popup itself, not a paper
-  assert.equal(await page.textContent('.status'), 'Open any arXiv paper’s HTML page to start')
+  assert.equal(await page.textContent('.status'), 'Open any arXiv paper’s HTML page to start.')
   assert.deepEqual(await page.locator('button.link').allTextContents(), ['Change', 'Show guide'])
   await fits(page, ['.row', '.status', '.account', 'button.link'])
   await noSidewaysScroll(page)
   await page.screenshot({ path: join(SHOTS, 'en-popup-off-paper.png'), fullPage: true })
   // The toolbar popup asks the tab in front for its status. Opened as a tab it would ask itself, so the paper tab's
-  // answer is stood in for: a count, and the longest error, whose line may wrap under its dot
+  // answer is stood in for: a count, and the longest error, whose line wraps under its dot
   const withStatus = async (status, shot) => {
     const popup = await context.newPage()
     await popup.setViewportSize({ width: 332, height: 400 })
@@ -774,8 +774,9 @@ await scenario('English: the popup with a key, and the guide', async () => {
   const marked = await withStatus({ state: 'done', marks: 12 }, 'en-popup.png')
   assert.equal(await marked.textContent('.status'), '12 marks on this page')
   await fits(marked, ['.status'])
-  const failed = await withStatus({ state: 'error', error: 'offline' }, 'en-popup-status-error.png')
-  assert.equal(await failed.textContent('.status'), 'Can’t reach the service. Check your network, then click here to try again')
+  const failed = await withStatus({ state: 'error', error: 'not-jev' }, 'en-popup-status-error.png')
+  // The popup's own wording: its status row cannot be clicked, unlike the page button whose tip says "Click here"
+  assert.equal(await failed.textContent('.status'), 'This endpoint didn’t return a Jev result. Check the settings.')
   // A status that wraps keeps its dot round and beside its first line
   const dot = await failed.evaluate(() => {
     const status = document.querySelector('.status')
@@ -785,7 +786,7 @@ await scenario('English: the popup with a key, and the guide', async () => {
     const d = status.querySelector('.dot').getBoundingClientRect()
     return { width: d.width, height: d.height, offset: d.top + d.height / 2 - (first.top + first.height / 2), lines: new Set([...range.getClientRects()].map(r => Math.round(r.top))).size }
   })
-  assert.ok(dot.width === 7 && dot.height === 7 && Math.abs(dot.offset) <= 1.5, `the status dot: ${JSON.stringify(dot)}`)
+  assert.ok(dot.lines > 1 && dot.width === 7 && dot.height === 7 && Math.abs(dot.offset) <= 1.5, `the status dot: ${JSON.stringify(dot)}`)
 
   const guide = await context.newPage()
   await guide.setViewportSize({ width: 760, height: 900 })
