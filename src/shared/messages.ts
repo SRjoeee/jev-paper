@@ -1,6 +1,6 @@
 import type { ErrorCode } from './errors'
 import type { DigestResult } from './result'
-import type { ProviderId } from './settings'
+import type { ProviderId } from './credentials'
 import type { Unit } from './units'
 
 export type DigestReply = { ok: true; result: DigestResult; cached: boolean } | { ok: false; error: ErrorCode }

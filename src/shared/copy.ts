@@ -58,7 +58,7 @@ export const COPY = {
       endpoint: '请填写以 https:// 开头的地址（本机地址可用 http://）和模型名',
     },
   },
-  ready: { change: '更改', guideAgain: '再看一遍引导' },
+  ready: { change: '更改', guideAgain: '查看引导' },
   guide: {
     title: 'JevPaper 已就绪',
     lede: '打开 arXiv 论文的 HTML 版，JevPaper 会把重点直接标在原文上。',
