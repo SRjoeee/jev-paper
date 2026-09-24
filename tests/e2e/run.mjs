@@ -35,6 +35,8 @@ await context.route('**/*', route => {
   if (url.protocol === 'https:' && url.hostname === 'arxiv.org') {
     const m = url.pathname.match(/^\/html\/([^/]+?)\/?$/)
     if (m && PAGES[m[1]]) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: readFileSync(join(ROOT, 'tests/fixtures', PAGES[m[1]]), 'utf8') })
+    // Somewhere else on arXiv to navigate to: an abstract page, as a tiny local body
+    if (url.pathname.startsWith('/abs/')) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>abs</title><p>An abstract page.</p>' })
     return route.continue()
   }
   blocked.add(url.origin)
@@ -401,6 +403,76 @@ await scenario('back and forward: one UI, one band layer, no new request', async
   await one('forward to B')
   assert.equal(jev.state.requests, asked, 'Jev was asked again')
   notes.push(`back/forward: A came back ${back.restored ? 'from the back/forward cache (the same content script instance, still painted)' : `as a fresh load (the content script ran again, answered from the cache); not restored because ${why}`}`)
+})
+
+/** Round-two question keys (src/background/engine/pipeline.ts): a run that reached them got past round one */
+const roundTwo = () => jev.state.bodies.filter(b => /"(?:pk|vf|ql|wk)_/.test(b)).length
+const fabState = page => page.evaluate(() => document.querySelector('jevpaper-ui')?.shadowRoot.querySelector('.fab')?.dataset.state ?? null)
+/** Waits until `test()` holds, polling every 50 ms, or fails with `what` */
+async function until(test, what, ms = 8000) {
+  const t0 = Date.now()
+  while (!(await test())) {
+    if (Date.now() - t0 > ms) assert.fail(`timed out: ${what}`)
+    await new Promise(r => setTimeout(r, 50))
+  }
+}
+
+await scenario('navigating away mid-run aborts the run; coming back from the back/forward cache asks again', async () => {
+  // A model id no earlier scenario used, so nothing is cached for it; Jev holds every answer
+  await seed({}, { model: 'jev-away' })
+  jev.state.hold = true
+  jev.state.cancelled = 0
+  jev.state.bodies = []
+  const start = jev.state.requests
+  try {
+    const page = await context.newPage()
+    await page.addInitScript(() => addEventListener('pageshow', e => (window.__restored = e.persisted)))
+    await page.goto('https://arxiv.org/html/1706.03762')
+    await until(() => jev.parked() > 0, 'the run reached Jev')
+    assert.equal(await fabState(page), 'computing')
+    await page.goto('https://arxiv.org/abs/1706.03762')
+    // Spec §6.1: the page's port closes, and after the 2 s grace the run is aborted: its requests are cancelled
+    await until(() => jev.parked() === 0, 'the pending requests were cancelled')
+    const sent = jev.state.requests - start
+    assert.ok(jev.state.cancelled > 0 && jev.state.cancelled === sent, `${jev.state.cancelled} of ${sent} requests cancelled`)
+    jev.release()
+    await new Promise(r => setTimeout(r, 1000))
+    assert.equal(jev.state.requests - start, sent, 'the run sent more requests after the tab left')
+    assert.equal(roundTwo(), 0, 'the run reached round two')
+    // Back: the page comes from the back/forward cache with its request closed, and asks again (Jev answers now)
+    await page.goBack({ waitUntil: 'commit' })
+    await hasBands(page)
+    assert.equal(await page.evaluate(() => window.__restored), true, 'the paper did not come back from the back/forward cache')
+    assert.ok(jev.state.requests - start > sent, 'the restored page did not ask again')
+  } finally {
+    jev.release()
+    await seed({})
+  }
+})
+
+await scenario('a reload mid-run rejoins the run: nothing is cancelled or asked twice', async () => {
+  await seed({}, { model: 'jev-reload' })
+  jev.state.hold = true
+  jev.state.cancelled = 0
+  jev.state.bodies = []
+  try {
+    const page = await context.newPage()
+    // arXiv's own assets would make the reload's timing depend on the network; this scenario needs none of them
+    await page.route(url => url.hostname === 'arxiv.org' && !url.pathname.startsWith('/html/'), route => route.abort())
+    await page.goto('https://arxiv.org/html/1706.03762')
+    await until(() => jev.parked() > 0, 'the run reached Jev')
+    await page.reload({ waitUntil: 'commit' })
+    // Past the grace period: the reloaded page connected again for the same run, so nothing was aborted
+    await new Promise(r => setTimeout(r, 3000))
+    assert.equal(jev.state.cancelled, 0, 'the reload aborted the run')
+    jev.release()
+    await hasBands(page)
+    assert.equal(jev.state.cancelled, 0)
+    assert.equal(new Set(jev.state.bodies).size, jev.state.bodies.length, 'a request body was sent twice')
+  } finally {
+    jev.release()
+    await seed({})
+  }
 })
 
 await scenario('dark theme: the dark palette, readable body text, nothing opaque above the band layer', async () => {

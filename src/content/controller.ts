@@ -65,6 +65,8 @@ export function createController(deps: ControllerDeps) {
   let status: PageStatus = { state: 'idle' }
   let lastError: ErrorCode | null = null
   let running = false
+  /** Counts runs, so a reply to a run that resume() has replaced is dropped when it arrives */
+  let generation = 0
   let tipTarget: number | null = null
   let hideTimer = 0
   let unwatch: () => void = () => {}
@@ -144,6 +146,7 @@ export function createController(deps: ControllerDeps) {
   async function run(): Promise<void> {
     if (running || destroyed) return
     running = true
+    const current = ++generation
     lastError = null
     status = { state: 'computing' }
     ui.setState({ kind: 'computing' })
@@ -155,6 +158,7 @@ export function createController(deps: ControllerDeps) {
       // the button shows an error and a click retries. After destroy it is swallowed, below.
       reply = { ok: false, error: 'busy' }
     }
+    if (current !== generation) return
     running = false
     if (destroyed) return
     if (!reply.ok) {
@@ -200,6 +204,17 @@ export function createController(deps: ControllerDeps) {
       unwatch = deps.settings.watch(onSettings)
       // Whether a key exists is the service worker's answer ('no-key'), not something this page reads
       await run()
+    },
+    /**
+     * The page is back from the back/forward cache (`pageshow` with `persisted`). Going in closed its port and its
+     * pending request (spec §6.1) — Chrome never answers that request — so a page without marks asks again, as a
+     * fresh load would: the service worker answers from its cache, rejoins the run if this tab is back within the
+     * grace period, or starts it again. A page waiting on the reader to fix the key keeps waiting.
+     */
+    resume(): void {
+      if (destroyed || result || (lastError && KEY_ERRORS.has(lastError))) return
+      running = false
+      void run()
     },
     status: (): PageStatus => status,
     timing: (): { paint: number } => ({ paint: paintMs }),

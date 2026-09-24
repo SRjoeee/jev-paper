@@ -5,6 +5,10 @@
 // engine (src/background/engine/pipeline.ts) or the key check (validate.ts) does not ask is recorded in
 // `state.unknown`, so a change to either shows up here instead of as a silently default answer. Every question gets
 // an answer of its asked type, as the client requires (client.ts: anything else is not-jev).
+//
+// `state.hold = true` parks every request unanswered until `release()`, as a slow Jev would: a run is then in flight
+// for as long as a scenario needs. A parked request whose client gives up (an aborted fetch closes the connection)
+// is counted in `state.cancelled`; `release()` answers the rest.
 import { createServer } from 'node:http'
 
 /** Every key prefix JevPaper asks: round one (role_, ev_, ex_, cv_), round two (pk_, vf_, ql_, wk_), the key check (ok) */
@@ -38,7 +42,9 @@ function answerOf(key, q) {
 }
 
 export async function startFakeJev() {
-  const state = { requests: 0, bodies: [], auth: [], unknown: [], mode: 'ok' }
+  const state = { requests: 0, bodies: [], auth: [], unknown: [], mode: 'ok', hold: false, cancelled: 0 }
+  /** Requests parked while `state.hold` is on: each answers when called */
+  const parked = new Set()
   const server = createServer((req, res) => {
     let body = ''
     req.on('data', chunk => {
@@ -60,10 +66,32 @@ export async function startFakeJev() {
       }
       for (const key of Object.keys(questions)) if (!KNOWN.test(key)) state.unknown.push(key)
       const answers = Object.fromEntries(Object.entries(questions).map(([k, q]) => [k, answerOf(k, q)]))
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ answers, usage: { input_tokens: 1 } }))
+      const reply = () => {
+        parked.delete(reply)
+        if (res.destroyed) return
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ answers, usage: { input_tokens: 1 } }))
+      }
+      if (!state.hold) return reply()
+      parked.add(reply)
+      res.on('close', () => {
+        if (res.writableEnded) return
+        parked.delete(reply)
+        state.cancelled++
+      })
     })
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  return { state, url: `http://127.0.0.1:${server.address().port}/v1/systemone`, close: () => server.close() }
+  return {
+    state,
+    url: `http://127.0.0.1:${server.address().port}/v1/systemone`,
+    /** Requests parked now */
+    parked: () => parked.size,
+    /** Stops holding and answers every parked request */
+    release() {
+      state.hold = false
+      for (const reply of [...parked]) reply()
+    },
+    close: () => server.close(),
+  }
 }

@@ -5,7 +5,7 @@ import type { DigestReply } from '@/shared/messages'
 import { type Credentials, hasKey } from '@/shared/credentials'
 import type { DigestResult } from '@/shared/result'
 import type { Paper, Unit } from '@/shared/units'
-import { cacheKey } from './cache'
+import { cacheKey, runOf } from './cache'
 import type { EngineAsk } from './engine/pipeline'
 import { type Ask, JevError } from './jev/client'
 import { type Endpoint, endpointOf } from './jev/providers'
@@ -22,6 +22,8 @@ interface Flight {
   promise: Promise<DigestReply>
   controller: AbortController
   waiters: Set<number | symbol>
+  /** The paper and text it runs for (cache.ts runOf): a tab leaves the runs of the page it left, not every run */
+  run: string
 }
 
 export function createDigestService(deps: DigestDeps) {
@@ -57,7 +59,7 @@ export function createDigestService(deps: DigestDeps) {
         // engine — and anything else is busy
         .catch(error => ({ ok: false as const, error: error instanceof JevError ? error.code : ('busy' as const) }))
         .finally(() => flights.delete(key))
-      flight = { promise, controller, waiters: new Set() }
+      flight = { promise, controller, waiters: new Set(), run: runOf(msg.paperId, msg.unitsHash) }
       flights.set(key, flight)
     }
     const waiter: number | symbol = tabId ?? Symbol('anonymous')
@@ -69,9 +71,16 @@ export function createDigestService(deps: DigestDeps) {
     }
   }
 
-  /** A tab closed or navigated to another page: abort every run it was the last one waiting on */
-  function leave(tabId: number): void {
-    for (const flight of flights.values()) if (flight.waiters.delete(tabId) && flight.waiters.size === 0) flight.controller.abort()
+  /**
+   * A tab's page has gone (presence.ts: closed, navigated away, or into the back/forward cache): abort every run of
+   * `run` — every run, when it is left out — that the tab was the last one waiting on. The run of another paper
+   * the same tab has since opened is left alone.
+   */
+  function leave(tabId: number, run?: string): void {
+    for (const flight of flights.values()) {
+      if (run !== undefined && flight.run !== run) continue
+      if (flight.waiters.delete(tabId) && flight.waiters.size === 0) flight.controller.abort()
+    }
   }
 
   return { request, leave, inFlight: () => flights.size }

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+import { runOf } from '@/background/cache'
 import { createDigestService } from '@/background/digest'
 import { digest } from '@/background/engine/pipeline'
 import { type Ask, JevError } from '@/background/jev/client'
@@ -74,6 +75,19 @@ describe('createDigestService', () => {
     expect(h.aborted()).toBe(true)
     expect(await a).toEqual({ ok: false, error: 'aborted' })
     expect(h.service.inFlight()).toBe(0)
+  })
+
+  it("a tab leaving one paper's run keeps the run of the paper it opened next", async () => {
+    const h = harness()
+    const a = h.service.request(msg, 1)
+    const b = h.service.request({ ...msg, paperId: 'q', unitsHash: 'g' }, 1)
+    await new Promise(r => setTimeout(r, 0))
+    expect(h.service.inFlight()).toBe(2)
+    h.service.leave(1, runOf('q', 'g'))
+    expect(await b).toEqual({ ok: false, error: 'aborted' })
+    expect(h.service.inFlight()).toBe(1)
+    h.release()
+    expect((await a).ok).toBe(true)
   })
 
   it('reports the client error and runs again on the next request', async () => {

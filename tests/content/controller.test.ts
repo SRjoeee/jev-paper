@@ -70,6 +70,46 @@ describe('createController', () => {
     expect(h.c.status()).toEqual({ state: 'done', marks: 2 })
   })
 
+  it('back from the back/forward cache mid-run: asks again, and drops the reply that never came', async () => {
+    let first!: (r: DigestReply) => void
+    const replies: Promise<DigestReply>[] = [new Promise(r => { first = r }), Promise.resolve({ ok: true, result: RESULT, cached: false })]
+    const h = harness({}, [], () => replies.shift()!)
+    void h.c.start()
+    await flush()
+    expect(h.c.status()).toEqual({ state: 'computing' })
+    h.c.resume()
+    await flush()
+    expect(h.digest).toHaveBeenCalledTimes(2)
+    expect(h.c.status()).toEqual({ state: 'done', marks: 2 })
+    // The first request's reply, if Chrome ever delivers it, is stale
+    first({ ok: false, error: 'aborted' })
+    await flush()
+    expect(h.c.status()).toEqual({ state: 'done', marks: 2 })
+  })
+
+  it('back from the back/forward cache after an aborted or busy run: asks again', async () => {
+    for (const error of ['aborted', 'busy'] as const) {
+      const h = harness({}, [{ ok: false, error }, { ok: true, result: RESULT, cached: true }])
+      await h.c.start()
+      h.c.resume()
+      await flush()
+      expect(h.digest).toHaveBeenCalledTimes(2)
+      expect(h.c.status()).toEqual({ state: 'done', marks: 2 })
+    }
+  })
+
+  it('back from the back/forward cache with marks, or waiting on the key: asks nothing', async () => {
+    const done = harness({}, [{ ok: true, result: RESULT, cached: false }])
+    await done.c.start()
+    done.c.resume()
+    const key = harness({}, [{ ok: false, error: 'invalid-key' }])
+    await key.c.start()
+    key.c.resume()
+    await flush()
+    expect(done.digest).toHaveBeenCalledTimes(1)
+    expect(key.digest).toHaveBeenCalledTimes(1)
+  })
+
   it('a keyStamp change after a busy error does not re-run by itself', async () => {
     const h = harness({}, [{ ok: false, error: 'busy' }])
     await h.c.start()

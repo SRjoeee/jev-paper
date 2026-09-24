@@ -18,9 +18,12 @@ class Db extends Dexie {
   }
 }
 
+/** One paper's text: what a paper page waits on, whichever model answers it (presence.ts leaves runs by it) */
+export const runOf = (paperId: string, unitsHash: string): string => `${paperId}|${unitsHash}`
+
 /** Same page text, same model asked, same engine, same cutting rules: same result (spec §6.3). `model` is the id
  *  requested, not the one that answered, so a change of preset or of custom model never reuses an old result. */
-export const cacheKey = (paperId: string, unitsHash: string, model: string): string => `${paperId}|${unitsHash}|${model}|${ENGINE_VERSION}|${RULES_VERSION}`
+export const cacheKey = (paperId: string, unitsHash: string, model: string): string => `${runOf(paperId, unitsHash)}|${model}|${ENGINE_VERSION}|${RULES_VERSION}`
 
 export class ResultCache {
   private db: Db

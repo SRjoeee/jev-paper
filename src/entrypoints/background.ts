@@ -4,6 +4,7 @@ import { digest } from '@/background/engine/pipeline'
 import { createClient } from '@/background/jev/client'
 import { endpointOf } from '@/background/jev/providers'
 import { validateKey } from '@/background/jev/validate'
+import { createPresence } from '@/background/presence'
 import { DEFAULT_CREDENTIALS, getCredentials } from '@/shared/credentials'
 import { answer } from '@/shared/messages'
 
@@ -20,9 +21,9 @@ export default defineBackground(() => {
       },
     }),
   )
-  // A closed tab, or one that navigated to another URL (a reload keeps its URL and keeps waiting)
-  browser.tabs.onRemoved.addListener(tabId => service.leave(tabId))
-  browser.tabs.onUpdated.addListener((tabId, change) => {
-    if (change.url) service.leave(tabId)
-  })
+  // A paper page's port closes when its tab closes, navigates away or enters the back/forward cache; after a grace
+  // period in which a reload can rejoin, the tab leaves that page's run (spec §6.1). No tabs.* listener: without the
+  // `tabs` permission Chrome strips the URL from tabs.onUpdated, and a closed tab closes its port anyway.
+  const presence = createPresence((tabId, run) => service.leave(tabId, run))
+  browser.runtime.onConnect.addListener(port => presence.connect(port))
 })

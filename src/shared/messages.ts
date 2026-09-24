@@ -22,6 +22,18 @@ export type MessageType = keyof Messages
 export type Message<T extends MessageType = MessageType> = T extends unknown ? { type: T } & Messages[T]['request'] : never
 export type Reply<T extends MessageType> = Messages[T]['response']
 
+/**
+ * The name of the port a paper page holds while it lives (spec §6.1): the run it waits on, so the service worker can
+ * tell a reload of the same paper (which rejoins the run) from a navigation to another one (which leaves it).
+ */
+export const presenceName = (paperId: string, unitsHash: string): string => `page:${unitsHash}:${paperId}`
+
+/** The run a presence port names, or null for a port that is not a paper page's */
+export function presenceOf(name: string): { paperId: string; unitsHash: string } | null {
+  const m = /^page:([0-9a-f]+):(.+)$/.exec(name)
+  return m ? { unitsHash: m[1]!, paperId: m[2]! } : null
+}
+
 export function isMessage(value: unknown): value is Message {
   return typeof value === 'object' && value !== null && typeof (value as { type?: unknown }).type === 'string'
 }
