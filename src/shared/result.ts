@@ -1,0 +1,20 @@
+export type Role = 'method' | 'result' | 'contribution' | 'background'
+export type CaveatType = 'assumption' | 'condition' | 'limitation' | 'evaluation' | 'unsupported' | 'tradeoff'
+
+export interface ClaimResult {
+  /** An abstract sentence */
+  sid: string
+  /** Probability that the sentence is a claim of this paper (1 − P(background)) */
+  pClaim: number
+  role: Role | null
+  /** Body sentences ranked as where the claim is delivered, best first (top 8) */
+  ranked: [sid: string, score: number][]
+}
+
+export type CaveatResult = [sid: string, score: number, type: CaveatType | null]
+
+export interface DigestResult {
+  claims: ClaimResult[]
+  /** Best first, top 40 */
+  caveats: CaveatResult[]
+}

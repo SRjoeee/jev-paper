@@ -1,0 +1,75 @@
+import type { ErrorCode } from './errors'
+import type { CaveatType, Role } from './result'
+
+// Every string the reader sees. One term for the product's output: 标记.
+export const COPY = {
+  brand: 'JevPaper',
+  lede: '打开 arXiv 论文，重点自动标出来。',
+  layers: { 1: '主张与证据', 2: '假设与局限', 3: '更多候选' } as const,
+  layersLabel: '标记层次',
+  button: 'JevPaper：选择标记多少',
+  bubble: '点这里，选择标记多少',
+  status: {
+    marked: (n: number) => `已标出 ${n} 处`,
+    none: '这篇论文没有找到可标记的内容',
+    computing: '正在标记…',
+    notPaper: '打开任意 arXiv 论文的 HTML 版即可使用',
+  },
+  role: { method: '方法', result: '结果', contribution: '贡献', background: '背景' } satisfies Record<Role, string>,
+  roleFallback: '主张',
+  caveat: { assumption: '假设', condition: '适用条件', limitation: '局限', evaluation: '评测保留', unsupported: '未证实', tradeoff: '代价' } satisfies Record<CaveatType, string>,
+  caveatFallback: '假设与局限',
+  tip: {
+    claim: (no: number, role: string) => `摘要第 ${no} 条 · ${role} · 点击看证据`,
+    evidence: (nos: readonly number[], candidate: boolean) => `兑现摘要第 ${nos.join('、')} 条${candidate ? '（候选）' : ''} · 点击回到摘要`,
+  },
+  anchor: {
+    claim: (no: number) => `摘要第 ${no} 条：跳到正文证据`,
+    evidence: (no: number) => `证据：回到摘要第 ${no} 条`,
+  },
+  pageError: {
+    'no-key': '还没有设置 key。点这里去设置',
+    'invalid-key': 'key 无效。点这里去更换',
+    credit: 'key 的额度用完了。点这里去更换',
+    busy: '服务繁忙。点这里重试',
+    offline: '连不上服务。检查网络后点这里重试',
+    'not-jev': '这个地址没有返回 Jev 的结果。点这里去检查设置',
+    aborted: '服务繁忙。点这里重试',
+  } satisfies Record<ErrorCode, string>,
+  setup: {
+    providerLabel: '服务',
+    providers: { openrouter: 'OpenRouter', typesafe: 'TypeSafe', custom: '自定义' },
+    keyLabel: 'API key',
+    keyPlaceholder: { openrouter: 'sk-or-…', typesafe: '', custom: '' },
+    getKey: { openrouter: '在 OpenRouter 获取 key ↗', typesafe: '在 TypeSafe 获取 key ↗' },
+    localOnly: '只保存在本机',
+    endpointLabel: '地址',
+    endpointPlaceholder: 'https://example.com/v1/systemone',
+    modelLabel: '模型',
+    submit: '开始使用',
+    errors: {
+      empty: '请粘贴 API key',
+      'invalid-key': '这把 key 无效。请检查是否完整复制，或重新生成一把',
+      credit: '这把 key 的额度用完了。请充值，或换一把 key',
+      offline: '连不上服务。请检查网络后再试',
+      'not-jev': '这个地址没有返回 Jev 的结果。请检查地址和模型名',
+      busy: '服务繁忙。请稍后再试',
+      permission: '需要允许访问这个地址才能使用',
+      endpoint: '请填写以 https:// 开头的地址（本机地址可用 http://）和模型名',
+    },
+  },
+  ready: { change: '更改', guideAgain: '再看一遍引导' },
+  guide: {
+    title: 'JevPaper 已就绪',
+    lede: '打开 arXiv 论文的 HTML 版，JevPaper 会把重点直接标在原文上。',
+    colors: '三种颜色',
+    colorNotes: {
+      1: '摘要里的主张，和正文里兑现它的那一句',
+      2: '读者必须知道的前提和局限',
+      3: '可能兑现主张的其他句子',
+    } as const,
+    tipsTitle: '怎么用',
+    tips: ['点摘要里的主张，跳到正文里兑现它的那一句；再点那一句，回到摘要。', '点右下角的按钮，选择标记多少。'],
+    cta: '试一试：Attention Is All You Need',
+  },
+} as const
