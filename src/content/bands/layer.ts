@@ -24,7 +24,15 @@ export class BandLayer {
   private els = new Map<number, HTMLElement[]>()
   private hot: number | null = null
   private frame = 0
+  private destroyed = false
   private cleanup: (() => void)[] = []
+  /**
+   * Identity, not live tree membership: a mutation record's target can be one of our own band elements that a
+   * later, same-tick `replaceChildren` has already detached by the time the batched callback runs, and a detached
+   * node's `parentNode` chain no longer reaches the host — so a live walk would misjudge our own write as foreign
+   * and schedule a needless relayout.
+   */
+  private ownNodes = new WeakSet<Node>()
 
   constructor(private doc: Document) {
     const view = doc.defaultView!
@@ -36,6 +44,7 @@ export class BandLayer {
     this.host.className = 'jevpaper-bands'
     this.host.setAttribute('aria-hidden', 'true')
     this.host.dataset.theme = themeOf(doc)
+    this.ownNodes.add(this.host)
     doc.body.append(this.host)
 
     const schedule = () => this.schedule()
@@ -46,18 +55,59 @@ export class BandLayer {
       sizes.observe(doc.body)
       this.cleanup.push(() => sizes.disconnect())
     }
+    // A font swap re-lays out every line and produces no mutation of its own (Read arXiv highlight.ts); the
+    // one-shot `ready` still covers the very first load, before any swap could fire `loadingdone`
     void doc.fonts?.ready.then(schedule)
-    // arXiv's theme switch, reading mode and table-of-contents toggles are attributes on <html>
-    const attributes = new view.MutationObserver(() => {
+    const onFonts = () => schedule()
+    doc.fonts?.addEventListener('loadingdone', onFonts)
+    this.cleanup.push(() => doc.fonts?.removeEventListener('loadingdone', onFonts))
+
+    // A node is ours when it is one of our own (the host, or a band element `layout()` created — checked by
+    // identity, since a node the same batch already detached no longer has a `parentNode` chain to walk), or is
+    // inside anything Task 10 adds to <body> (`<jevpaper-ui>`, `<jevpaper-anchors>`, …), checked live since we
+    // never detach those ourselves — our own writes must never schedule a relayout
+    const isOurs = (node: Node): boolean => {
+      if (this.ownNodes.has(node)) return true
+      for (let el: Node | null = node; el; el = el.parentNode) {
+        if (el.nodeType === Node.ELEMENT_NODE && (el as Element).localName.startsWith('jevpaper-')) return true
+      }
+      return false
+    }
+    const isRelevant = (record: MutationRecord): boolean => {
+      if (isOurs(record.target)) return false
+      if (record.type === 'childList') {
+        const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)]
+        if (nodes.length > 0 && nodes.every(isOurs)) return false
+      }
+      return true
+    }
+    // arXiv's theme switch, reading mode and table-of-contents toggles are attributes on <html>; everything else
+    // that can reflow the paper without changing the body's own box — a block inserted or removed, a class
+    // toggled, translated text set into a node already in the tree — is a mutation under <body>
+    const checkTheme = () => {
       const theme = themeOf(doc)
       if (theme !== this.host.dataset.theme) {
         this.host.dataset.theme = theme
         this.onTheme?.(theme)
       }
-      schedule()
+    }
+    const mutations = new view.MutationObserver(records => {
+      checkTheme()
+      if (records.some(isRelevant)) schedule()
     })
-    attributes.observe(doc.documentElement, { attributes: true })
-    this.cleanup.push(() => attributes.disconnect())
+    mutations.observe(doc.body, { childList: true, subtree: true, attributes: true, characterData: true })
+    mutations.observe(doc.documentElement, { attributes: true })
+    this.cleanup.push(() => mutations.disconnect())
+
+    // The OS preference can flip without any DOM mutation at all — author CSS keyed on the media query
+    // repaints the page on its own; the query's own 'change' event is the only signal
+    const scheme = view.matchMedia?.('(prefers-color-scheme: dark)')
+    const onScheme = () => {
+      checkTheme()
+      schedule()
+    }
+    scheme?.addEventListener('change', onScheme)
+    this.cleanup.push(() => scheme?.removeEventListener('change', onScheme))
   }
 
   get theme(): Theme {
@@ -89,14 +139,18 @@ export class BandLayer {
   }
 
   destroy(): void {
-    if (this.frame) cancelAnimationFrame(this.frame)
+    this.destroyed = true
+    if (this.frame) {
+      cancelAnimationFrame(this.frame)
+      this.frame = 0
+    }
     for (const undo of this.cleanup) undo()
     this.host.remove()
     this.style.remove()
   }
 
   private schedule(): void {
-    if (this.frame) return
+    if (this.destroyed || this.frame) return
     this.frame = requestAnimationFrame(() => {
       this.frame = 0
       this.layout()
@@ -114,7 +168,8 @@ export class BandLayer {
       let lineHeight: number | null = null
       for (const range of mark.ranges) {
         const container = range.commonAncestorContainer
-        const anchor = (container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement) as Element
+        const anchor = container.nodeType === Node.ELEMENT_NODE ? (container as Element) : container.parentElement
+        if (!anchor) continue
         let clip = clips.get(anchor)
         if (!clip) {
           clip = clipOf(anchor, view)
@@ -143,6 +198,7 @@ export class BandLayer {
       el.dataset.tone = b.tone
       el.style.cssText = `left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px;border-radius:${b.radius.map(r => `${r}px`).join(' ')}`
       if (b.mark === this.hot) el.classList.add('hot')
+      this.ownNodes.add(el)
       fragment.append(el)
       const list = this.els.get(b.mark) ?? []
       list.push(el)
