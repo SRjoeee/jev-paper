@@ -1,0 +1,381 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixture > 2312.17141.html 1`] = `
+{
+  "byUnit": {
+    "ack": 1,
+    "authorinfo": 2,
+    "bibblock": 151,
+    "caption": 11,
+    "footnote": 2,
+    "item": 2,
+    "p": 550,
+    "personname": 2,
+    "title": 159,
+  },
+  "cells": 0,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "S8.SS2.SSS0.Px7.p2.1",
+    "S8.SS2.SSS0.Px7.p3.1",
+    "S8.SS2.SSS0.Px7.p3.2",
+  ],
+  "numericCells": 0,
+  "table": 0,
+  "text": 880,
+  "total": 880,
+}
+`;
+
+exports[`fixture > 2312.17527.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 4,
+    "bibblock": 42,
+    "caption": 6,
+    "footnote": 4,
+    "p": 78,
+    "personname": 4,
+    "table": 2,
+    "title": 28,
+  },
+  "cells": 84,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b166",
+    "axt-b167",
+    "axt-b168",
+  ],
+  "numericCells": 55,
+  "table": 2,
+  "text": 166,
+  "total": 168,
+}
+`;
+
+exports[`fixture > 2401.00418.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 1,
+    "bibblock": 107,
+    "caption": 3,
+    "footnote": 2,
+    "p": 140,
+    "personname": 1,
+    "title": 75,
+  },
+  "cells": 0,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b327",
+    "axt-b328",
+    "axt-b329",
+  ],
+  "numericCells": 0,
+  "table": 0,
+  "text": 329,
+  "total": 329,
+}
+`;
+
+exports[`fixture > 2401.00596.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 2,
+    "bibblock": 88,
+    "caption": 13,
+    "footnote": 15,
+    "p": 54,
+    "personname": 1,
+    "table": 1,
+    "title": 16,
+  },
+  "cells": 49,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b188",
+    "axt-b189",
+    "axt-b190",
+  ],
+  "numericCells": 8,
+  "table": 1,
+  "text": 189,
+  "total": 190,
+}
+`;
+
+exports[`fixture > 2410.00260.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 2,
+    "bibblock": 173,
+    "caption": 17,
+    "footnote": 2,
+    "p": 63,
+    "personname": 3,
+    "table": 9,
+    "title": 23,
+  },
+  "cells": 147,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "A3.T8.2",
+    "axt-b291",
+    "A3.T9.2",
+  ],
+  "numericCells": 77,
+  "table": 9,
+  "text": 283,
+  "total": 292,
+}
+`;
+
+exports[`fixture > 2507.00150.html 1`] = `
+{
+  "byUnit": {
+    "ack": 1,
+    "authorinfo": 11,
+    "bibblock": 97,
+    "caption": 9,
+    "footnote": 7,
+    "keywords": 1,
+    "p": 53,
+    "personname": 7,
+    "table": 3,
+    "title": 12,
+  },
+  "cells": 700,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b199",
+    "A1.p1.1",
+    "A1.p2.1",
+  ],
+  "numericCells": 552,
+  "table": 3,
+  "text": 198,
+  "total": 201,
+}
+`;
+
+exports[`fixture > 2608.29808.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 4,
+    "bibblock": 206,
+    "caption": 25,
+    "item": 5,
+    "p": 139,
+    "personname": 4,
+    "table": 13,
+    "title": 46,
+  },
+  "cells": 1899,
+  "firstIds": [
+    "p1.3",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b440",
+    "axt-b441",
+    "A3.SS1.SSS0.Px2.p1.1",
+  ],
+  "numericCells": 1537,
+  "table": 13,
+  "text": 429,
+  "total": 442,
+}
+`;
+
+exports[`fixture > 2608.30667.html 1`] = `
+{
+  "byUnit": {
+    "p": 1,
+  },
+  "cells": 0,
+  "firstIds": [
+    "p1.2",
+  ],
+  "lastIds": [
+    "p1.2",
+  ],
+  "numericCells": 0,
+  "table": 0,
+  "text": 1,
+  "total": 1,
+}
+`;
+
+exports[`fixture > 2609.00245.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 1,
+    "bibblock": 39,
+    "footnote": 11,
+    "p": 491,
+    "personname": 1,
+    "table": 1,
+    "title": 133,
+  },
+  "cells": 15,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "p2.1",
+    "p3.1",
+    "p4.1",
+  ],
+  "numericCells": 0,
+  "table": 1,
+  "text": 676,
+  "total": 677,
+}
+`;
+
+exports[`fixture > 2609.00246.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 4,
+    "bibblock": 209,
+    "caption": 18,
+    "footnote": 9,
+    "keywords": 1,
+    "p": 256,
+    "personname": 4,
+    "table": 8,
+    "title": 71,
+  },
+  "cells": 1603,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "Pt0.A7.T6.13",
+    "axt-b579",
+    "Pt0.A7.SS6.SSSx2.p1.1",
+  ],
+  "numericCells": 1010,
+  "table": 8,
+  "text": 572,
+  "total": 580,
+}
+`;
+
+exports[`fixture > 2609.03768.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 1,
+    "bibblock": 38,
+    "caption": 15,
+    "keywords": 1,
+    "p": 85,
+    "personname": 1,
+    "table": 6,
+    "title": 31,
+  },
+  "cells": 245,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b176",
+    "axt-b177",
+    "axt-b178",
+  ],
+  "numericCells": 202,
+  "table": 6,
+  "text": 172,
+  "total": 178,
+}
+`;
+
+exports[`fixture > 2609.04056.html 1`] = `
+{
+  "byUnit": {
+    "bibblock": 111,
+    "footnote": 2,
+    "p": 457,
+    "personname": 2,
+    "title": 197,
+  },
+  "cells": 0,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b767",
+    "axt-b768",
+    "axt-b769",
+  ],
+  "numericCells": 0,
+  "table": 0,
+  "text": 769,
+  "total": 769,
+}
+`;
+
+exports[`fixture > synthetic-structures.html 1`] = `
+{
+  "byUnit": {
+    "authorinfo": 1,
+    "caption": 3,
+    "cv": 2,
+    "dedicatory": 1,
+    "indexentry": 2,
+    "intertext": 2,
+    "item": 2,
+    "marginal": 1,
+    "p": 12,
+    "title": 8,
+  },
+  "cells": 0,
+  "firstIds": [
+    "axt-b1",
+    "axt-b2",
+    "axt-b3",
+  ],
+  "lastIds": [
+    "axt-b32",
+    "axt-b33",
+    "axt-b34",
+  ],
+  "numericCells": 0,
+  "table": 0,
+  "text": 34,
+  "total": 34,
+}
+`;

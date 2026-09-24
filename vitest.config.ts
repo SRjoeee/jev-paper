@@ -21,5 +21,9 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'eval/**/*.test.ts'],
     passWithNoTests: true,
     testTimeout: 30_000,
+    // Remote fixtures are downloaded and verified once, before the first test file
+    globalSetup: ['tests/global-setup.ts'],
+    // fake-indexeddb for Dexie, Web Crypto for hashing
+    setupFiles: ['tests/setup.ts'],
   },
 })

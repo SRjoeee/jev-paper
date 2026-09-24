@@ -1,0 +1,46 @@
+{
+  "fixtures": [
+    {
+      "path": "tests/fixtures/arxiv/2312.17527.html",
+      "url": "https://arxiv.org/html/2312.17527v1",
+      "sha256": "d82e276b9ad812188d8776650218c5e4c6e33e5a254bc3b5a9caaeeb516d6336",
+      "bytes": 322636
+    },
+    {
+      "path": "tests/fixtures/arxiv/2401.00418.html",
+      "url": "https://arxiv.org/html/2401.00418v1",
+      "sha256": "e191b85c6b25d882f484d636eeef3240b27c7040827102ebaa11fb2925d1c21b",
+      "bytes": 923346
+    },
+    {
+      "path": "tests/fixtures/arxiv/2401.00596.html",
+      "url": "https://arxiv.org/html/2401.00596v3",
+      "sha256": "a848e49fbcf946ad9c5ecdc0e3bc2fb8d54ed207826b769054e0c6d4b8801e40",
+      "bytes": 299706
+    },
+    {
+      "path": "tests/fixtures/arxiv/2608.29808.html",
+      "url": "https://arxiv.org/html/2608.29808v1",
+      "sha256": "1e68d4244b1a93f469c5ee6ebed0a9a21bd2c2b99f645e4986747a5e92828dab",
+      "bytes": 907788
+    },
+    {
+      "path": "tests/fixtures/arxiv/2609.00245.html",
+      "url": "https://arxiv.org/html/2609.00245v1",
+      "sha256": "cc4faa72cfaacb951d0a1b0f91ea093fd5e2ede4d30fc38a7291979d60abb427",
+      "bytes": 1811493
+    },
+    {
+      "path": "tests/fixtures/jev/1706.03762v7.html",
+      "url": "https://arxiv.org/html/1706.03762v7",
+      "sha256": "fe1288e9c6f8322156429ab44bf5ced203155f8ecc7ea9fe6cfd125872c72a3b",
+      "bytes": 188707
+    },
+    {
+      "path": "tests/fixtures/jev/2607.24653v2.html",
+      "url": "https://arxiv.org/html/2607.24653v2",
+      "sha256": "8413ace971c97c8ae5fda01b53585c29710042f109ef23ad4ab2824a5300dcad",
+      "bytes": 1520019
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<!--
+  A synthetic fixture, not a real paper (DESIGN §5.7, tests/fixtures/README.md).
+  LaTeXML's and ar5iv's style sheets name 145 classes that none of the 30 real papers surveyed uses (book, CV, index
+  and epigraph templates). Each of those that carries prose is written out here by LaTeXML's output conventions, so
+  the rule audit guards cases never met in a real paper. A structure added here is recorded in DESIGN §5.7 too.
+-->
+<html lang="en"><head><meta charset="utf-8"><title>Synthetic LaTeXML structures</title></head>
+<body>
+<div class="ltx_page_main"><div class="ltx_page_content">
+<article class="ltx_document">
+
+<div class="ltx_titlepage">
+<h1 class="ltx_title ltx_title_document">A Book About Structures</h1>
+<h2 class="ltx_subtitle">With a subtitle that carries meaning</h2>
+<div class="ltx_date ltx_role_creation">Received 3 March 2026; revised 9 April 2026</div>
+<div class="ltx_role_dedicatory">To everyone who reads the appendix first.</div>
+<div class="ltx_classification">2020 Mathematics Subject Classification: Primary 11L07</div>
+</div>
+
+<div class="ltx_epigraph">
+<p class="ltx_p">All models are wrong, but some are useful.</p>
+<p class="ltx_p ltx_align_right">George Box</p>
+</div>
+
+<section class="ltx_part" id="Pt1">
+<h1 class="ltx_title ltx_title_part"><span class="ltx_tag ltx_tag_part">Part I </span>Foundations</h1>
+<section class="ltx_chapter" id="Ch1">
+<h2 class="ltx_title ltx_title_chapter"><span class="ltx_tag ltx_tag_chapter">Chapter 1 </span>Preliminaries</h2>
+<div class="ltx_para"><p class="ltx_p">A chapter paragraph that must be translated.</p></div>
+
+<section class="ltx_subparagraph" id="Ch1.SPx1">
+<h6 class="ltx_title ltx_title_subparagraph">A subparagraph heading.</h6>
+<div class="ltx_para"><p class="ltx_p">Text under the deepest sectioning level.</p></div>
+</section>
+
+<blockquote class="ltx_quote"><p class="ltx_p">A displayed quotation that should read in both languages.</p></blockquote>
+
+<div class="ltx_para"><p class="ltx_p">An inline quotation appears as <span class="ltx_inline-quote"><span class="ltx_outerquote">a quoted clause</span></span> inside a sentence.</p></div>
+
+<dl class="ltx_description">
+<dt class="ltx_item"><span class="ltx_tag ltx_tag_item">Compactness. </span></dt>
+<dd class="ltx_item"><div class="ltx_para"><p class="ltx_p">Every open cover admits a finite subcover.</p></div></dd>
+<dt class="ltx_item">Separability</dt>
+<dd class="ltx_item"><div class="ltx_para"><p class="ltx_p">A countable dense subset exists.</p></div></dd>
+</dl>
+
+<div class="ltx_framed ltx_framed_rectangle"><div class="ltx_para"><p class="ltx_p">A framed remark that carries real text.</p></div></div>
+
+<span class="ltx_marginpar ltx_marginpar_right">A margin note with a full sentence.</span>
+
+<figure class="ltx_float ltx_float_algorithm" id="alg1">
+<figcaption class="ltx_caption"><span class="ltx_tag ltx_tag_float">Algorithm 1 </span>Greedy selection.</figcaption>
+<div class="ltx_listing ltx_lstlisting"><div class="ltx_listingline">for each candidate do</div><div class="ltx_listingline">  accept if feasible</div></div>
+</figure>
+
+<pre class="ltx_verbatim">verbatim block: not prose, must stay untouched</pre>
+
+<figure class="ltx_figure" id="fig1">
+<figure class="ltx_figure ltx_subfigure" id="fig1a"><figcaption class="ltx_caption ltx_subgraphics"><span class="ltx_tag ltx_tag_subfigure">(a) </span>The first panel.</figcaption></figure>
+<figcaption class="ltx_caption"><span class="ltx_tag ltx_tag_figure">Figure 1: </span>An outer caption.</figcaption>
+</figure>
+
+<div class="ltx_para"><p class="ltx_p">A sentence with a conversion problem <span class="ltx_ERROR">Undefined control sequence</span> and a warning <span class="ltx_WARNING">Missing package</span> and a note <span class="ltx_INFO">Loaded fallback font</span>.</p></div>
+</section>
+</section>
+
+<section class="ltx_index" id="Ix1">
+<h2 class="ltx_title ltx_title_index">Index</h2>
+<ul class="ltx_indexlist">
+<li class="ltx_indexentry">compact space<span class="ltx_indexrefs">12, 15</span></li>
+<li class="ltx_indexentry">separable metric space<span class="ltx_indexrefs">18</span></li>
+</ul>
+</section>
+
+<section class="ltx_glossary" id="Gl1">
+<h2 class="ltx_title ltx_title_glossary">Glossary</h2>
+<div class="ltx_para"><p class="ltx_p">Terms used throughout the book.</p></div>
+</section>
+
+<div class="ltx_cv">
+<h2 class="ltx_title ltx_cv_heading">Positions</h2>
+<div class="ltx_cv_entry">
+<span class="ltx_cv_entry_date">2021–2026</span>
+<div class="ltx_cv_entry_content"><div class="ltx_para"><p class="ltx_p">Research scientist, somewhere.</p></div></div>
+</div>
+<div class="ltx_cv_item"><span class="ltx_cv_item_label">Languages</span><span class="ltx_cv_item_content">English, Chinese</span></div>
+</div>
+
+<!-- \intertext (issue #152): prose between the formulas of an equation group. The block below is real LaTeXML
+     output copied byte for byte from arXiv:2609.09360v1 — Alexander Meiners, Hannes Uecker, "Breathing and moving
+     vesicles in a geometric mechanochemical model", CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) —
+     cut after the second prose row. None of the 12 real fixtures has this shape, and the whole paper would push the
+     corpus tests past the heap limit (measured 2026-09-12), so it lives here.
+     The point: a prose row is tr.ltx_eqn_row **without** .ltx_equation, one td spanning the row (colspan +
+     white-space: normal) holding text and inline formulas; a spacer row has the same shape with an empty cell and
+     must not become a block -->
+<div class="ltx_para">
+<table id="S1.E2" class="ltx_equationgroup ltx_eqn_table">
+<tbody><tr id="S1.EGx1" class="ltx_eqn_row"><td class="ltx_eqn_cell" colspan="5"></td></tr>
+<tr id="S1.E2.1" class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_td ltx_align_right ltx_eqn_cell"><math id="S1.E2.1.m1" class="ltx_Math" alttext="\displaystyle{\partial}_{t}X" display="inline" intent=":literal"><semantics><mrow><msub><mo>∂</mo><mi>t</mi></msub><mi>X</mi></mrow><annotation encoding="application/x-tex">\displaystyle{\partial}_{t}X</annotation></semantics></math></td>
+<td class="ltx_td ltx_align_left ltx_eqn_cell"><math id="S1.E2.1.m2" class="ltx_Math" alttext="\displaystyle=-[\Delta(H-c_{0})+2H(H^{2}-K)+2c_{0}K-2c_{0}^{2}H+\lambda H]N," display="inline" intent=":literal"><semantics><mrow><mrow><mphantom></mphantom><mo>=</mo><mrow><mo>−</mo><mrow><mrow><mo stretchy="false">[</mo><mrow><mrow><mrow><mrow><mi mathvariant="normal">Δ</mi><mo>⁡</mo><mrow><mo stretchy="false">(</mo><mrow><mi>H</mi><mo>−</mo><msub><mi>c</mi><mn>0</mn></msub></mrow><mo stretchy="false">)</mo></mrow></mrow><mo>+</mo><mrow><mn>2</mn><mo lspace="0em" rspace="0em">​</mo><mi>H</mi><mo lspace="0em" rspace="0em">​</mo><mrow><mo stretchy="false">(</mo><mrow><msup><mi>H</mi><mn>2</mn></msup><mo>−</mo><mi>K</mi></mrow><mo stretchy="false">)</mo></mrow></mrow><mo>+</mo><mrow><mn>2</mn><mo lspace="0em" rspace="0em">​</mo><msub><mi>c</mi><mn>0</mn></msub><mo lspace="0em" rspace="0em">​</mo><mi>K</mi></mrow></mrow><mo>−</mo><mrow><mn>2</mn><mo lspace="0em" rspace="0em">​</mo><msubsup><mi>c</mi><mn>0</mn><mn>2</mn></msubsup><mo lspace="0em" rspace="0em">​</mo><mi>H</mi></mrow></mrow><mo>+</mo><mrow><mi>λ</mi><mo lspace="0em" rspace="0em">​</mo><mi>H</mi></mrow></mrow><mo stretchy="false">]</mo></mrow><mo lspace="0em" rspace="0em">​</mo><mi>N</mi></mrow></mrow></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">\displaystyle=-[\Delta(H-c_{0})+2H(H^{2}-K)+2c_{0}K-2c_{0}^{2}H+\lambda H]N,</annotation></semantics></math></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(2a)</span></td></tr>
+<tr id="S1.E2.2" class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_td ltx_align_right ltx_eqn_cell"><math id="S1.E2.2.m1" class="ltx_Math" alttext="\displaystyle{\partial}_{t}\phi" display="inline" intent=":literal"><semantics><mrow><msub><mo>∂</mo><mi>t</mi></msub><mi>ϕ</mi></mrow><annotation encoding="application/x-tex">\displaystyle{\partial}_{t}\phi</annotation></semantics></math></td>
+<td class="ltx_td ltx_align_left ltx_eqn_cell"><math id="S1.E2.2.m2" class="ltx_Math" alttext="\displaystyle=D\Delta\phi-\delta\phi+g(H)." display="inline" intent=":literal"><semantics><mrow><mrow><mphantom></mphantom><mo>=</mo><mrow><mrow><mrow><mi>D</mi><mo lspace="0em" rspace="0em">​</mo><mi mathvariant="normal">Δ</mi><mo lspace="0em" rspace="0em">​</mo><mi>ϕ</mi></mrow><mo>−</mo><mrow><mi>δ</mi><mo lspace="0em" rspace="0em">​</mo><mi>ϕ</mi></mrow></mrow><mo>+</mo><mrow><mi>g</mi><mo>⁡</mo><mrow><mo stretchy="false">(</mo><mi>H</mi><mo stretchy="false">)</mo></mrow></mrow></mrow></mrow><mo lspace="0em">.</mo></mrow><annotation encoding="application/x-tex">\displaystyle=D\Delta\phi-\delta\phi+g(H).</annotation></semantics></math></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(2b)</span></td></tr>
+<tr class="ltx_eqn_row ltx_align_baseline"><td class="ltx_eqn_cell ltx_align_left" style="white-space:normal;" colspan="5">In the Helfrich flow (<a href="#S1.E2" title="In 1 Introduction" class="ltx_ref"><span class="ltx_text ltx_ref_tag">2</span></a>a) of <math id="S1.E2.m1" class="ltx_Math" alttext="X" display="inline" intent=":literal"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>, again <math id="S1.E2.m2" class="ltx_Math" alttext="H" display="inline" intent=":literal"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math> is the
+mean curvature (always wrt to the inner normal <math id="S1.E2.m3" class="ltx_Math" alttext="N" display="inline" intent=":literal"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> of <math id="S1.E2.m4" class="ltx_Math" alttext="X" display="inline" intent=":literal"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>, i.e., <math id="S1.E2.m5" class="ltx_Math" alttext="H=1/R" display="inline" intent=":literal"><semantics><mrow><mi>H</mi><mo>=</mo><mrow><mn>1</mn><mo>/</mo><mi>R</mi></mrow></mrow><annotation encoding="application/x-tex">H=1/R</annotation></semantics></math>
+for a sphere of radius <math id="S1.E2.m6" class="ltx_Math" alttext="R" display="inline" intent=":literal"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>), <math id="S1.E2.m7" class="ltx_Math" alttext="K" display="inline" intent=":literal"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math> is the Gaussian curvature, <math id="S1.E2.m8" class="ltx_Math" alttext="\Delta" display="inline" intent=":literal"><semantics><mi mathvariant="normal">Δ</mi><annotation encoding="application/x-tex">\Delta</annotation></semantics></math> is the
+Laplace–Beltrami operator on <math id="S1.E2.m9" class="ltx_Math" alttext="X" display="inline" intent=":literal"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>, and the spontaneous curvature</td></tr><tr id="S1.EGx2" class="ltx_eqn_row"><td class="ltx_eqn_cell" colspan="5"></td></tr>
+<tr id="S1.E2.3" class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center" colspan="2"><math id="S1.E2.3.m1" class="ltx_Math" alttext="\displaystyle c_{0}=c_{0}(\phi)=\alpha+\beta\phi" display="block" intent=":literal"><semantics><mrow><msub><mi>c</mi><mn>0</mn></msub><mo>=</mo><mrow><msub><mi>c</mi><mn>0</mn></msub><mo lspace="0em" rspace="0em">​</mo><mrow><mo stretchy="false">(</mo><mi>ϕ</mi><mo stretchy="false">)</mo></mrow></mrow><mo>=</mo><mrow><mi>α</mi><mo>+</mo><mrow><mi>β</mi><mo lspace="0em" rspace="0em">​</mo><mi>ϕ</mi></mrow></mrow></mrow><annotation encoding="application/x-tex">\displaystyle c_{0}=c_{0}(\phi)=\alpha+\beta\phi</annotation></semantics></math></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(2c)</span></td></tr>
+<tr class="ltx_eqn_row ltx_align_baseline"><td class="ltx_eqn_cell ltx_align_left" style="white-space:normal;" colspan="5">depends on <math id="S1.E2.m10" class="ltx_Math" alttext="\phi" display="inline" intent=":literal"><semantics><mi>ϕ</mi><annotation encoding="application/x-tex">\phi</annotation></semantics></math> via parameters <math id="S1.E2.m11" class="ltx_Math" alttext="\alpha,\beta\in{\mathbb{R}}" display="inline" intent=":literal"><semantics><mrow><mrow><mi>α</mi><mo>,</mo><mi>β</mi></mrow><mo>∈</mo><mi>ℝ</mi></mrow><annotation encoding="application/x-tex">\alpha,\beta\in{\mathbb{R}}</annotation></semantics></math>. The morphogen <math id="S1.E2.m12" class="ltx_Math" alttext="\phi" display="inline" intent=":literal"><semantics><mi>ϕ</mi><annotation encoding="application/x-tex">\phi</annotation></semantics></math>
+diffuses with rate <math id="S1.E2.m13" class="ltx_Math" alttext="D&gt;0" display="inline" intent=":literal"><semantics><mrow><mi>D</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">D&gt;0</annotation></semantics></math> on <math id="S1.E2.m14" class="ltx_Math" alttext="X" display="inline" intent=":literal"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math> and decays with rate <math id="S1.E2.m15" class="ltx_Math" alttext="\delta&gt;0" display="inline" intent=":literal"><semantics><mrow><mi>δ</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\delta&gt;0</annotation></semantics></math>,
+and <math id="S1.E2.m16" class="ltx_Math" alttext="H" display="inline" intent=":literal"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math> influences the dynamics of <math id="S1.E2.m17" class="ltx_Math" alttext="\phi" display="inline" intent=":literal"><semantics><mi>ϕ</mi><annotation encoding="application/x-tex">\phi</annotation></semantics></math> via the function</td></tr></tbody></table>
+</div>
+
+</article>
+</div></div>
+</body></html>
