@@ -18,8 +18,9 @@ class Db extends Dexie {
   }
 }
 
-/** Same page text, same engine, same cutting rules: same result (spec §6.3) */
-export const cacheKey = (paperId: string, unitsHash: string): string => `${paperId}|${unitsHash}|${ENGINE_VERSION}|${RULES_VERSION}`
+/** Same page text, same model asked, same engine, same cutting rules: same result (spec §6.3). `model` is the id
+ *  requested, not the one that answered, so a change of preset or of custom model never reuses an old result. */
+export const cacheKey = (paperId: string, unitsHash: string, model: string): string => `${paperId}|${unitsHash}|${model}|${ENGINE_VERSION}|${RULES_VERSION}`
 
 export class ResultCache {
   private db: Db

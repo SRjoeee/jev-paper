@@ -7,8 +7,9 @@ import { type Credentials, DEFAULT_CREDENTIALS } from '@/shared/credentials'
 const RESULT = { claims: [], caveats: [] }
 const msg = { paperId: 'p', title: 'T', unitsHash: 'h', units: [] }
 
-function harness(credentials: Partial<Credentials> = { apiKey: 'k' }, fail?: JevError) {
+function harness(credentials: Partial<Credentials> = { apiKey: 'k' }, fail?: JevError, served: string | null = null) {
   const store = new Map<string, unknown>()
+  let current: Credentials = { ...DEFAULT_CREDENTIALS, ...credentials }
   let runs = 0
   let release!: () => void
   const gate = new Promise<void>(r => { release = r })
@@ -19,15 +20,16 @@ function harness(credentials: Partial<Credentials> = { apiKey: 'k' }, fail?: Jev
       signal?.addEventListener('abort', () => { aborted = true; reject(new JevError('aborted', 'aborted')) })
     })
     if (fail) throw fail
-    return {}
+    return { answers: {}, model: served }
   }
   const service = createDigestService({
     cache: { get: async k => store.get(k) as never, put: async (k, v) => { store.set(k, v) } },
-    credentials: async () => ({ ...DEFAULT_CREDENTIALS, ...credentials }),
+    credentials: async () => current,
     engine: async (_paper, ask) => { runs++; await ask({}, {}); return RESULT },
     client,
   })
-  return { service, store, runs: () => runs, release: () => release(), aborted: () => aborted }
+  const use = (next: Partial<Credentials>) => { current = { ...DEFAULT_CREDENTIALS, ...next } }
+  return { service, store, use, runs: () => runs, release: () => release(), aborted: () => aborted }
 }
 
 describe('createDigestService', () => {
@@ -82,5 +84,34 @@ describe('createDigestService', () => {
     const b = h.service.request(msg, 1)
     await b
     expect(h.runs()).toBe(2)
+  })
+
+  it('keys the cache by the model asked, so another model never reuses a result', async () => {
+    const h = harness()
+    h.release()
+    await h.service.request(msg, 1)
+    expect([...h.store.keys()]).toEqual([expect.stringMatching(/^p\|h\|typesafe\/jev-1\.13-20260917\|/)])
+    h.use({ provider: 'typesafe', apiKey: 'k' })
+    expect(await h.service.request(msg, 1)).toMatchObject({ cached: false })
+    expect(h.runs()).toBe(2)
+    h.use({ provider: 'custom', baseUrl: 'https://x.test/v1/systemone', model: 'my-jev', apiKey: 'k' })
+    await h.service.request(msg, 1)
+    expect(h.runs()).toBe(3)
+    expect(await h.service.request(msg, 1)).toMatchObject({ cached: true })
+    expect(h.runs()).toBe(3)
+  })
+
+  it('serves a cached result without a key', async () => {
+    const h = harness()
+    h.release()
+    await h.service.request(msg, 1)
+    h.use({ apiKey: '' })
+    expect(await h.service.request(msg, 1)).toEqual({ ok: true, result: RESULT, cached: true })
+  })
+
+  it('keeps the model that answered on the result, for diagnostics', async () => {
+    const h = harness({ apiKey: 'k' }, undefined, 'typesafe/jev-1.13-20260917')
+    h.release()
+    expect(await h.service.request(msg, 1)).toEqual({ ok: true, result: { ...RESULT, model: 'typesafe/jev-1.13-20260917' }, cached: false })
   })
 })

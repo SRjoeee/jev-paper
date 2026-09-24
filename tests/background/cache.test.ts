@@ -28,7 +28,11 @@ describe('ResultCache', () => {
     cache.close()
   })
 
-  it('keys by paper, units, engine and rules', () => {
-    expect(cacheKey('1706.03762', 'abc')).toBe(`1706.03762|abc|${ENGINE_VERSION}|${RULES_VERSION}`)
+  it('keys by paper, units, the model asked, engine and rules', () => {
+    expect(cacheKey('1706.03762', 'abc', 'typesafe/jev-1.13-20260917')).toBe(`1706.03762|abc|typesafe/jev-1.13-20260917|${ENGINE_VERSION}|${RULES_VERSION}`)
+  })
+
+  it('changes the key when the model changes', () => {
+    expect(cacheKey('1706.03762', 'abc', 'typesafe/jev-1.13-20260917')).not.toBe(cacheKey('1706.03762', 'abc', 'typesafe/jev-1.14-20261101'))
   })
 })

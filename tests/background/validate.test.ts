@@ -20,9 +20,11 @@ describe('validateKey', () => {
 
 describe('providers', () => {
   it('resolves the presets and a custom endpoint', () => {
-    expect(endpointOf({ ...DEFAULT_CREDENTIALS, apiKey: ' k ' })).toEqual({ url: PRESETS.openrouter.url, model: PRESETS.openrouter.model, apiKey: 'k' })
-    expect(endpointOf({ ...DEFAULT_CREDENTIALS, provider: 'custom', baseUrl: ' https://x.test/v1/systemone ', model: ' jev ', apiKey: 'k' }))
-      .toEqual({ url: 'https://x.test/v1/systemone', model: 'jev', apiKey: 'k' })
+    expect(endpointOf({ ...DEFAULT_CREDENTIALS, apiKey: ' k ' })).toEqual({ url: PRESETS.openrouter.url, model: 'typesafe/jev-1.13-20260917', fallback: '~typesafe/jev-latest', apiKey: 'k' })
+    expect(endpointOf({ ...DEFAULT_CREDENTIALS, provider: 'typesafe', apiKey: 'k' })).toEqual({ url: PRESETS.typesafe.url, model: 'jev-1.13.0', fallback: 'jev-latest', apiKey: 'k' })
+    const custom = endpointOf({ ...DEFAULT_CREDENTIALS, provider: 'custom', baseUrl: ' https://x.test/v1/systemone ', model: ' jev ', apiKey: 'k' })
+    expect(custom).toEqual({ url: 'https://x.test/v1/systemone', model: 'jev', apiKey: 'k' })
+    expect('fallback' in custom).toBe(false)
     expect(originPattern('https://x.test:8443/v1/systemone')).toBe('https://x.test/*')
   })
 })

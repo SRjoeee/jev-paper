@@ -17,4 +17,6 @@ export interface DigestResult {
   claims: ClaimResult[]
   /** Best first, top 40 */
   caveats: CaveatResult[]
+  /** The versioned model(s) that answered, as the responses named them. Diagnostics only; never shown. */
+  model?: string
 }

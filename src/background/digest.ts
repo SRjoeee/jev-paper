@@ -28,29 +28,35 @@ export function createDigestService(deps: DigestDeps) {
   const flights = new Map<string, Flight>()
 
   async function request(msg: { paperId: string; title: string; unitsHash: string; units: Unit[] }, tabId?: number): Promise<DigestReply> {
-    const key = cacheKey(msg.paperId, msg.unitsHash)
+    // The key holds the model asked, so the endpoint is read first — a cached result is served even without a key
+    const credentials = await deps.credentials()
+    const endpoint = endpointOf(credentials)
+    const key = cacheKey(msg.paperId, msg.unitsHash, endpoint.model)
     const hit = await deps.cache.get(key)
     if (hit) return { ok: true, result: hit, cached: true }
+    // No await from here to `flights.set`: two requests for one key can never both start a run
     let flight = flights.get(key)
     if (!flight) {
-      const credentials = await deps.credentials()
       if (!hasKey(credentials)) return { ok: false, error: 'no-key' }
-      // Re-check after the await: another request may have started the flight meanwhile
-      flight = flights.get(key)
-      if (!flight) {
-        const controller = new AbortController()
-        const ask = deps.client(endpointOf(credentials))
-        const promise: Promise<DigestReply> = deps
-          .engine({ title: msg.title, units: msg.units }, (state, questions) => ask(state, questions, controller.signal))
-          .then(async result => {
-            await deps.cache.put(key, result)
-            return { ok: true as const, result, cached: false }
-          })
-          .catch(error => ({ ok: false as const, error: error instanceof JevError ? error.code : ('busy' as const) }))
-          .finally(() => flights.delete(key))
-        flight = { promise, controller, waiters: new Set() }
-        flights.set(key, flight)
-      }
+      const controller = new AbortController()
+      const ask = deps.client(endpoint)
+      /** The versioned models that answered this run, kept on the result for diagnostics only */
+      const served = new Set<string>()
+      const promise: Promise<DigestReply> = deps
+        .engine({ title: msg.title, units: msg.units }, async (state, questions) => {
+          const reply = await ask(state, questions, controller.signal)
+          if (reply.model) served.add(reply.model)
+          return reply.answers
+        })
+        .then(async result => {
+          const kept: DigestResult = served.size > 0 ? { ...result, model: [...served].join(', ') } : result
+          await deps.cache.put(key, kept)
+          return { ok: true as const, result: kept, cached: false }
+        })
+        .catch(error => ({ ok: false as const, error: error instanceof JevError ? error.code : ('busy' as const) }))
+        .finally(() => flights.delete(key))
+      flight = { promise, controller, waiters: new Set() }
+      flights.set(key, flight)
     }
     const waiter: number | symbol = tabId ?? Symbol('anonymous')
     flight.waiters.add(waiter)
