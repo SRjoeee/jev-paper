@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/demo.gif" alt="JevPaper 标记《Attention Is All You Need》：主张蓝色、证据黄色、局限粉色；点主张跳到证据" width="800">
+  <img src=".github/assets/demo-0.1.0.gif" alt="JevPaper 标记《Attention Is All You Need》：主张蓝色、证据黄色、局限粉色；点主张跳到证据" width="800">
 </p>
 
 <p align="center"><sub>《Attention Is All You Need》上的真实运行：打开论文，标记出现；点主张跳到证据，再点回到摘要；调高层次看局限和更多候选。</sub></p>
@@ -108,10 +108,10 @@ pnpm zip          # 打出和发布里一样的 zip
 
 ```mermaid
 flowchart LR
-    P["arXiv HTML 页面"] -->|"页面里的句子"| X["JevPaper<br/>在你的浏览器里"]
-    X -->|"两轮带类型的问题"| J(("Jev"))
+    P["arXiv 页面"] -->|"句子"| X["JevPaper"]
+    X -->|"问题"| J(("Jev"))
     J -->|"概率"| X
-    X -->|"标记（缓存）"| P
+    X -->|"标记"| P
 ```
 
 1. **切句**。内容脚本在页面里直接把论文切成句子，公式和行间公式保持完整，并把每句映射回它在页面上的确切位置。

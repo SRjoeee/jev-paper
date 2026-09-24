@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/demo.gif" alt="JevPaper on Attention Is All You Need: claims in blue, their evidence in yellow, caveats in pink; clicking a claim jumps to its evidence" width="800">
+  <img src=".github/assets/demo-0.1.0.gif" alt="JevPaper on Attention Is All You Need: claims in blue, their evidence in yellow, caveats in pink; clicking a claim jumps to its evidence" width="800">
 </p>
 
 <p align="center"><sub>Real run on <em>Attention Is All You Need</em>: open the paper, the marks appear, click a claim to jump to its evidence, click again to come back, raise the level for caveats and more candidates.</sub></p>
@@ -124,10 +124,10 @@ pnpm zip          # a zip like the one in the release
 
 ```mermaid
 flowchart LR
-    P["arXiv HTML page"] -->|"its sentences"| X["JevPaper<br/>in your browser"]
-    X -->|"two rounds of<br/>typed questions"| J(("Jev"))
+    P["arXiv page"] -->|"sentences"| X["JevPaper"]
+    X -->|"questions"| J(("Jev"))
     J -->|"probabilities"| X
-    X -->|"marks, cached"| P
+    X -->|"marks"| P
 ```
 
 1. **Cut.** The content script cuts the paper into sentences in the page itself, keeping formulas and display
