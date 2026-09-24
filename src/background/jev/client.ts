@@ -99,7 +99,14 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
           json = JSON.parse(text)
         } catch {}
         if (!json || typeof json.answers !== 'object' || json.answers === null) throw new JevError('not-jev', 'the response holds no answers')
-        return { answers: fromWire(json.answers as Record<string, unknown>), model: typeof json.model === 'string' ? json.model : null }
+        // Every question asked must come back answered, with its type (a silent default would mis-rank instead)
+        let answers: Answers
+        try {
+          answers = fromWire(questions, json.answers as Record<string, unknown>)
+        } catch (error) {
+          throw new JevError('not-jev', (error as Error).message)
+        }
+        return { answers, model: typeof json.model === 'string' ? json.model : null }
       }
       if (status === 401) throw new JevError('invalid-key', text.slice(0, 300))
       if (status === 403) throw new JevError(CREDIT.test(text) ? 'credit' : 'invalid-key', text.slice(0, 300))

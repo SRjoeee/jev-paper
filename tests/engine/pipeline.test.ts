@@ -137,3 +137,26 @@ describe('the role a claim is shown with', () => {
     expect(unsure.picks).toEqual(['s001', 's002'].map(sid => pickQuestion('method', sid, {}).instructions))
   })
 })
+
+describe('answers the engine cannot do without', () => {
+  /** fakeAsk, with the answers to one kind of question left out */
+  const without = (prefix: string) => {
+    const ask = fakeAsk([])
+    return async (state: unknown, questions: Questions): Promise<Answers> =>
+      Object.fromEntries(Object.entries(await ask(state, questions)).filter(([k]) => !k.startsWith(prefix)))
+  }
+
+  it.each(['role_', 'ev_', 'ex_', 'cv_', 'pk_', 'vf_', 'ql_', 'wk_'])('throws not-jev when the %s answers are missing', async prefix => {
+    await expect(digest({ title: 'T', units }, without(prefix))).rejects.toMatchObject({ name: 'JevError', code: 'not-jev' })
+  })
+
+  it('throws not-jev on an answer of the wrong type', async () => {
+    const ask = fakeAsk([])
+    const mistyped = async (state: unknown, questions: Questions): Promise<Answers> => {
+      const out = await ask(state, questions)
+      for (const k of Object.keys(out)) if (k.startsWith('ex_')) out[k] = METHOD
+      return out
+    }
+    await expect(digest({ title: 'T', units }, mistyped)).rejects.toMatchObject({ code: 'not-jev' })
+  })
+})

@@ -2,31 +2,60 @@
 // round2Max 55), ported operation for operation, with round two sent in parts of 110 — the parity test replays its
 // recorded answers per question, by a hash of the state and the question, so every state and question object must
 // serialise exactly as the experiment's. `fixes` adds spec §6.2's two general fixes.
+import { CLAIM_THRESHOLD } from '@/shared/levels'
 import type { CaveatType, ClaimRole, DigestResult } from '@/shared/result'
 import type { Paper, Unit } from '@/shared/units'
+import { JevError } from '../jev/client'
 import type { Answer, Answers, Questions } from '../jev/wire'
 import * as Q from './questions'
-import { abstractOf, caveatWeight, evidenceWeight, isAppendix, poolable, type Window, windows } from './sections'
+import { abstractOf, caveatWeight, evidenceWeight, isAppendix, poolable, sectionPolicies, type Window, windows } from './sections'
 
 export type EngineAsk = (state: unknown, questions: Questions) => Promise<Answers>
+/** Neither option is for the product, which always runs with the defaults */
 export interface EngineOptions {
+  /** Test only: false turns off spec §6.2's two fixes, so the parity test can run the experiment's `final` */
   fixes?: boolean
-  /** Evaluation only: keep every ranked sentence and every caveat instead of the top 8 / top 40 */
+  /** Eval only (eval/regress.test.ts): keep every ranked sentence and every caveat instead of the top 8 / top 40 */
   full?: boolean
 }
 
+// Each constant names its source: a section of eval/LOG.md, or the review of 2026-09-25 ("measured 2026-09-25").
+/** Sentences per evidence window: the experiment's (LOG.md "v7 / v8": 60-sentence windows did no better) */
 const WINDOW = 180
+/** Sentences per caveat request: LOG.md "v1"; a 40-sentence passage beats section context ("v7 / v8") */
 const CAVEAT_CHUNK = 40
+/** Round one's ranking kept per claim, from which the pool is drawn: the experiment's `rank` (no LOG.md figure) */
 const RANK_TOP = 10
+/** A claim's pool for the pick: LOG.md "v5" (the top 8 hold a good sentence for 93 % of claims); a pool of 5
+ *  loses 4.8 hit@1 (measured 2026-09-25) */
 const POOL_TOP = 8
+/** Pool sentences verified: the experiment's v5–v6 code (no LOG.md figure); at or near best
+ *  (measured 2026-09-25) */
 const VERIFY_TOP = 5
+/** Caveat candidates for round two: LOG.md "v4"; 40 gives AP 51.7 and 100 gives 51.1, against 52.5
+ *  (measured 2026-09-25) */
 const CAVEAT_TOP = 70
-// Round two's part size. The experiment's 55 came from the Vercel gateway's 503s on larger requests (LOG.md "v9 /
-// v10"); on OpenRouter the 2026-09-25 review measured 110 at −2 requests and −4.9 % tokens with the same quality
-// and latency, and 194 questions in one request succeeded 12/12. The experiment keeps 55 (parity replays per question).
+/** Round two's part size. The experiment's 55 came from the Vercel gateway's 503s on larger requests (LOG.md
+ *  "v9 / v10"); on OpenRouter, 110 measured −2 requests and −4.9 % tokens per paper at the same quality and
+ *  latency, and 194 questions in one request succeeded 12/12 (measured 2026-09-25). The experiment keeps its 55:
+ *  the parity test replays per question. */
 const ROUND2_MAX = 110
+/** The output's top 8 ranked per claim and top 40 caveats (spec §6.2); the levels show at most 3 and 20 */
 const OUT_RANKED = 8
 const OUT_CAVEATS = 40
+/** The pick's floor, so a sentence the pick gives 0 still orders by verification: LOG.md "v6" (the untuned default
+ *  kept); 0 changes no ranking (measured 2026-09-25) */
+const PICK_FLOOR = 0.02
+/** A caption's weight as evidence: LOG.md "v6" ("captions × 0.6"); at 1 the change is within noise
+ *  (measured 2026-09-25) */
+const CAPTION = 0.6
+/** A caveat left out of round two keeps its detection score × 0.05, so it sorts after the candidates: the
+ *  experiment's v4–v6 code (no LOG.md figure); cosmetic (measured 2026-09-25) */
+const NON_CANDIDATE = 0.05
+/** The caveat logistic: the weights of LOG.md "v4"'s leave-one-paper-out fit, with its "about the main method"
+ *  and importance features dropped. The intercept is in no LOG.md section; it changes no ranking (the logistic is
+ *  monotone in its linear predictor), and a refit does not beat these weights (measured 2026-09-25). */
+const CAVEAT_FIT = { det: 1.69, appendix: -1.55, qualifies: 0.89, weaker: 1.4, intercept: -2.15 }
 
 // The share of the non-background probability a claim's top role needs to be shown; below it the tip says 「主张」.
 // Chosen on dev in the 2026-09-25 review: the roles shown were right 94 % (dev) and 96 % (test) of the time, against
@@ -49,7 +78,18 @@ export function roleOf(probabilities: Record<string, number>): { top: ClaimRole;
 }
 
 type ChoiceAnswer = Extract<Answer, { type: 'choice' }>
-const probability = (a: Answer | undefined): number => (a?.type === 'boolean' ? a.probability : 0)
+// The client checks every answer against its question (client.ts); a missing one here is not Jev's either
+const missing = (key: string) => new JevError('not-jev', `no answer for ${key}`)
+const noul = (answers: Answers, key: string): number => {
+  const a = answers[key]
+  if (a?.type !== 'boolean') throw missing(key)
+  return a.probability
+}
+const chosen = (answers: Answers, key: string): ChoiceAnswer => {
+  const a = answers[key]
+  if (a?.type !== 'choice') throw missing(key)
+  return a
+}
 const rank = (scores: Record<string, number>, n = RANK_TOP): [string, number][] => Object.entries(scores).sort((a, b) => b[1] - a[1]).slice(0, n)
 const chunks = <T>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n))
 
@@ -69,6 +109,7 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
   if (abs.length === 0) return { claims: [], caveats: [] }
   const absState = Object.fromEntries(abs.map(a => [a.sid, a.text]))
   const wins = windows(paper.units, fixes, WINDOW)
+  const policy = sectionPolicies(fixes)
 
   // ---- round one: roles; per window, evidence Choice + exists; per 40-sentence chunk, the caveat kind ----
   const roleQ = Object.fromEntries(abs.map(a => [`role_${a.sid}`, Q.roleQuestion(a.sid)])) as Questions
@@ -86,25 +127,24 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
   const winRes = rest.slice(0, wins.length)
   const cvRes = rest.slice(wins.length)
 
+  const evWeights = wins.map(w => evidenceWeight(policy(w.title, w.sec)))
   const claims = abs.map(a => {
-    const r = roleRes![`role_${a.sid}`] as ChoiceAnswer
+    const r = chosen(roleRes!, `role_${a.sid}`)
     const scores: Record<string, number> = {}
-    wins.forEach((w, i) => {
-      const ev = winRes[i]![`ev_${a.sid}`] as ChoiceAnswer
-      const ex = probability(winRes[i]![`ex_${a.sid}`])
-      const weight = evidenceWeight(w, fixes)
-      for (const [sid, p] of Object.entries(ev.probabilities)) scores[sid] = p * ex * weight
+    wins.forEach((_, i) => {
+      const ev = chosen(winRes[i]!, `ev_${a.sid}`)
+      const ex = noul(winRes[i]!, `ex_${a.sid}`)
+      for (const [sid, p] of Object.entries(ev.probabilities)) scores[sid] = p * ex * evWeights[i]!
     })
     return { sid: a.sid, pClaim: 1 - (r.probabilities.background ?? 0), ...roleOf(r.probabilities), ranked: rank(scores) }
   })
 
-  let caveats: [string, number, string | null][] = []
+  let caveats: [string, number, string][] = []
   cvChunks.forEach(({ w, c }, i) => {
-    const weight = caveatWeight(w, fixes)
+    const weight = caveatWeight(policy(w.title, w.sec))
     for (const u of c) {
-      const a = cvRes[i]![`cv_${u.sid}`]!
-      const p = a.type === 'boolean' ? a.probability : 1 - ((a as ChoiceAnswer).probabilities.none ?? 0)
-      caveats.push([u.sid, p * weight, a.type === 'choice' ? a.choice : null])
+      const a = chosen(cvRes[i]!, `cv_${u.sid}`)
+      caveats.push([u.sid, (1 - (a.probabilities.none ?? 0)) * weight, a.choice])
     }
   })
   caveats.sort((a, b) => b[1] - a[1])
@@ -112,20 +152,21 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
   // ---- round two: a role-aware pick over each claim's pool, verification, and two caveat questions ----
   const unit = new Map(paper.units.map(u => [u.sid, u]))
   const text = (s: string) => `[${unit.get(s)!.secTitle}] ${unit.get(s)!.text}`
-  const claimSet = claims.filter(c => c.pClaim >= 0.5)
+  const claimSet = claims.filter(c => c.pClaim >= CLAIM_THRESHOLD)
   const pool = new Map(
     claimSet.map(c => {
-      const keep = c.ranked.filter(x => poolable(unit.get(x[0])!, fixes)).map(x => x[0])
+      const keep = c.ranked.filter(x => poolable(policy(unit.get(x[0])!.secTitle, unit.get(x[0])!.sec))).map(x => x[0])
       const ids = keep.length >= 3 ? keep : c.ranked.map(x => x[0])
       return [c.sid, ids.slice(0, POOL_TOP)] as const
     }),
   )
+  // A claim with an empty pool (a paper with no body sentences) is asked nothing more and keeps its ranking
+  const picked = claimSet.filter(c => pool.get(c.sid)!.length > 0)
   const cvCands = caveats.slice(0, CAVEAT_TOP).map(c => c[0])
   const cand = [...new Set([...[...pool.values()].flat(), ...cvCands])]
   const q: Questions = {}
-  for (const c of claimSet) {
+  for (const c of picked) {
     const ids = pool.get(c.sid)!
-    if (ids.length === 0) continue
     q[`pk_${c.sid}`] = Q.pickQuestion(c.top, c.sid, Object.fromEntries(ids.map(s => [s, null])) as Record<string, null>)
     for (const s of ids.slice(0, VERIFY_TOP)) q[`vf_${c.sid}_${s}`] = Q.verifyQuestion(c.sid, s)
   }
@@ -140,16 +181,15 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
   )
   const A: Answers = Object.assign({}, ...(await Promise.all(parts.map(part => ask(state2, part)))))
 
-  for (const c of claimSet) {
+  for (const c of picked) {
     const ids = pool.get(c.sid)!
-    if (ids.length === 0) continue
-    const pk = (A[`pk_${c.sid}`] as ChoiceAnswer | undefined)?.probabilities ?? {}
+    const pk = chosen(A, `pk_${c.sid}`).probabilities
     const rescored = ids
-      .map(s => {
-        const vf = A[`vf_${c.sid}_${s}`]
-        const verified = vf?.type === 'boolean' ? vf.probability : null
+      .map((s, i) => {
+        // Only the top VERIFY_TOP were asked; the others weigh as a middling verification (LOG.md "v6", untuned)
+        const verified = i < VERIFY_TOP ? noul(A, `vf_${c.sid}_${s}`) : null
         const caption = unit.get(s)!.kind === 'caption'
-        return [s, ((pk[s] ?? 0) + 0.02) * (verified === null ? 0.5 : 0.5 + 0.5 * verified) * (caption ? 0.6 : 1)] as [string, number]
+        return [s, ((pk[s] ?? 0) + PICK_FLOOR) * (verified === null ? 0.5 : 0.5 + 0.5 * verified) * (caption ? CAPTION : 1)] as [string, number]
       })
       .sort((x, y) => y[1] - x[1])
     c.ranked = [...rescored, ...c.ranked.filter(x => !ids.includes(x[0]))]
@@ -157,17 +197,17 @@ export async function digest(paper: Paper, ask: EngineAsk, options: EngineOption
 
   const candidates = new Set(cvCands)
   caveats = caveats.map(([s, det, t]) => {
-    if (!candidates.has(s)) return [s, det * 0.05, t]
+    if (!candidates.has(s)) return [s, det * NON_CANDIDATE, t]
     const appendix = isAppendix(unit.get(s)!.sec) ? 1 : 0
-    const ql = probability(A[`ql_${s}`])
-    const wk = probability(A[`wk_${s}`])
-    return [s, 1 / (1 + Math.exp(-(1.69 * det - 1.55 * appendix + 0.89 * ql + 1.4 * wk - 2.15))), t]
+    const f = CAVEAT_FIT
+    const x = f.det * det + f.appendix * appendix + f.qualifies * noul(A, `ql_${s}`) + f.weaker * noul(A, `wk_${s}`) + f.intercept
+    return [s, 1 / (1 + Math.exp(-x)), t]
   })
   caveats.sort((a, b) => b[1] - a[1])
 
   const keep = <T>(xs: T[], n: number) => (options.full ? xs : xs.slice(0, n))
   return {
     claims: claims.map(c => ({ sid: c.sid, pClaim: c.pClaim, role: c.shown, ranked: keep(c.ranked, OUT_RANKED) })),
-    caveats: keep(caveats, OUT_CAVEATS).map(([s, v, t]) => [s, v, t === 'none' || t === null ? null : (t as CaveatType)]),
+    caveats: keep(caveats, OUT_CAVEATS).map(([s, v, t]) => [s, v, t === 'none' ? null : (t as CaveatType)]),
   }
 }

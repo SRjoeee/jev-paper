@@ -254,3 +254,37 @@ describe('the pinned model and its fallback', () => {
     expect(s.models).toEqual(['my-jev'])
   })
 })
+
+describe('answers checked against the questions asked', () => {
+  const asking = (answers: unknown) => createClient(endpoint, { ...noSleep, fetch: async () => json(200, { model: 'm', answers }) })
+  const questions = { a: yesno('q'), b: choice('Which?', { s1: null, s2: null }) }
+  const good = { a: { type: 'noul', noul: 0.4 }, b: { type: 'choice', choice: 's2', probabilities: { s1: 0.1, s2: 0.9 }, confidence: 0.8 } }
+
+  it('reads well-formed answers in the internal shape, and drops answers to questions not asked', async () => {
+    const reply = await asking({ ...good, extra: { type: 'noul', noul: 1 } })({}, questions)
+    expect(reply.answers).toEqual({ a: { type: 'boolean', probability: 0.4 }, b: { type: 'choice', choice: 's2', probabilities: { s1: 0.1, s2: 0.9 }, confidence: 0.8 } })
+  })
+
+  it.each([
+    ['a missing yes/no', { b: good.b }],
+    ['a missing choice', { a: good.a }],
+    ['a yes/no answered as a choice', { ...good, a: good.b }],
+    ['a choice answered as a yes/no', { ...good, b: good.a }],
+    ['a yes/no without a probability', { ...good, a: { type: 'noul' } }],
+    ['a yes/no whose probability is a string', { ...good, a: { type: 'noul', noul: '0.4' } }],
+    ['a yes/no whose probability is not finite', { ...good, a: { type: 'noul', noul: null } }],
+    ['the internal spelling on the wire', { ...good, a: { type: 'boolean', probability: 0.4 } }],
+    ['a choice outside its criteria', { ...good, b: { ...good.b, choice: 's3' } }],
+    ['a choice without probabilities', { ...good, b: { type: 'choice', choice: 's2' } }],
+    ['a choice whose probabilities are not numbers', { ...good, b: { ...good.b, probabilities: { s1: 'low', s2: 0.9 } } }],
+    ['an answer that is not an object', { ...good, a: 0.4 }],
+  ])('throws not-jev on %s', async (_name, answers) => {
+    await expect(asking(answers)({}, questions)).rejects.toMatchObject({ code: 'not-jev' })
+  })
+
+  it('checks a score answer too', async () => {
+    const q = { s: { type: 'score' as const, instructions: 'How much?', criteria: ['low', 'high'] } }
+    expect((await asking({ s: { type: 'score', score: 1.4 } })({}, q)).answers.s).toEqual({ type: 'score', score: 1.4 })
+    await expect(asking({ s: { type: 'score' } })({}, q)).rejects.toMatchObject({ code: 'not-jev' })
+  })
+})

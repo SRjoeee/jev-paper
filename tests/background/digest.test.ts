@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { createDigestService } from '@/background/digest'
+import { digest } from '@/background/engine/pipeline'
 import { type Ask, JevError } from '@/background/jev/client'
 import { type Credentials, DEFAULT_CREDENTIALS } from '@/shared/credentials'
 
@@ -113,5 +114,31 @@ describe('createDigestService', () => {
     const h = harness({ apiKey: 'k' }, undefined, 'typesafe/jev-1.13-20260917')
     h.release()
     expect(await h.service.request(msg, 1)).toEqual({ ok: true, result: { ...RESULT, model: 'typesafe/jev-1.13-20260917' }, cached: false })
+  })
+
+  it('reports an incomplete answer as not-jev, not as busy', async () => {
+    const units = [
+      { sid: 's001', kind: 'abstract' as const, sec: 'abstract', secTitle: 'Abstract', pid: 'a', text: 'We propose X.' },
+      { sid: 's002', kind: 'body' as const, sec: 'S1', secTitle: '1 Method', pid: 'p', text: 'X works by Y.' },
+    ]
+    const service = createDigestService({
+      cache: { get: async () => undefined, put: async () => {} },
+      credentials: async () => ({ ...DEFAULT_CREDENTIALS, apiKey: 'k' }),
+      engine: digest,
+      client: () => async () => ({ answers: {}, model: null }),
+    })
+    expect(await service.request({ ...msg, units }, 1)).toEqual({ ok: false, error: 'not-jev' })
+  })
+
+  it('reports any other failure of the engine as busy', async () => {
+    const service = createDigestService({
+      cache: { get: async () => undefined, put: async () => {} },
+      credentials: async () => ({ ...DEFAULT_CREDENTIALS, apiKey: 'k' }),
+      engine: async () => {
+        throw new TypeError('boom')
+      },
+      client: () => async () => ({ answers: {}, model: null }),
+    })
+    expect(await service.request(msg, 1)).toEqual({ ok: false, error: 'busy' })
   })
 })

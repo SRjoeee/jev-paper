@@ -53,6 +53,8 @@ export function createDigestService(deps: DigestDeps) {
           await deps.cache.put(key, kept)
           return { ok: true as const, result: kept, cached: false }
         })
+        // A JevError keeps its code — an answer missing or of the wrong type is not-jev, from the client or the
+        // engine — and anything else is busy
         .catch(error => ({ ok: false as const, error: error instanceof JevError ? error.code : ('busy' as const) }))
         .finally(() => flights.delete(key))
       flight = { promise, controller, waiters: new Set() }

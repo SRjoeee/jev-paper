@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { isAdmin, poolable, RESTATING, windows } from '@/background/engine/sections'
+import { caveatWeight, evidenceWeight, isAdmin, policyOf, poolable, RESTATING, sectionPolicies, windows } from '@/background/engine/sections'
 import type { Unit } from '@/shared/units'
 
 const u = (sid: string, sec: string, secTitle: string, pid = sid, kind: Unit['kind'] = 'body'): Unit => ({ sid, kind, sec, secTitle, pid, text: `Sentence ${sid}.` })
@@ -20,9 +20,31 @@ describe('section rules', () => {
   })
 
   it('keeps restating, related-work and administrative sentences out of the pool', () => {
-    expect(poolable(u('s1', 'S1', '1 Introduction'), true)).toBe(false)
-    expect(poolable(u('s2', 'S2', '2 Related Work'), true)).toBe(false)
-    expect(poolable(u('s3', 'S3', '3 Method'), true)).toBe(true)
+    expect(poolable(policyOf('1 Introduction', 'S1', true))).toBe(false)
+    expect(poolable(policyOf('2 Related Work', 'S2', true))).toBe(false)
+    expect(poolable(policyOf('Acknowledgements', 'S9', true))).toBe(false)
+    expect(poolable(policyOf('3 Method', 'S3', true))).toBe(true)
+    expect(poolable(policyOf('Appendix B Proofs', 'A2', true))).toBe(true)
+  })
+
+  it('weighs evidence and caveats by section, reading the rules in the experiment order', () => {
+    const weights = (title: string, sec: string) => {
+      const p = policyOf(title, sec, true)
+      return [evidenceWeight(p), caveatWeight(p)]
+    }
+    expect(weights('Acknowledgements', 'S9')).toEqual([0, 0])
+    expect(weights('1 Introduction', 'S1')).toEqual([0.2, 1])
+    expect(weights('2 Related Work', 'S2')).toEqual([0.3, 0])
+    // Both restating and related: restating wins for evidence, related still silences caveats
+    expect(weights('1 Introduction and Related Work', 'S1')).toEqual([0.2, 0])
+    expect(weights('Appendix B Proofs', 'A2')).toEqual([0.8, 1])
+    expect(weights('3 Method', 'S3')).toEqual([1, 1])
+  })
+
+  it('reads the policy of each section once', () => {
+    const policy = sectionPolicies(true)
+    expect(policy('1 Introduction', 'S1')).toBe(policy('1 Introduction', 'S1'))
+    expect(policy('1 Introduction', 'S1')).not.toBe(policy('1 Introduction', 'S2'))
   })
 })
 

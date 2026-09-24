@@ -12,6 +12,11 @@ describe('validateKey', () => {
     expect(reply).toEqual({ ok: true })
   })
 
+  it('refuses an endpoint whose answer is not a yes/no one', async () => {
+    const reply = await validateKey(endpoint, { fetch: async () => new Response(JSON.stringify({ answers: { ok: { type: 'choice', choice: 'yes', probabilities: { yes: 1 } } } })) })
+    expect(reply).toEqual({ ok: false, error: 'not-jev' })
+  })
+
   it('passes the client error code through', async () => {
     const reply = await validateKey(endpoint, { fetch: async () => new Response('nope', { status: 401 }) })
     expect(reply).toEqual({ ok: false, error: 'invalid-key' })

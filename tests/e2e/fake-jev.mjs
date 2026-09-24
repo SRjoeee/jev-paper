@@ -3,7 +3,8 @@
 // answered `{ type: 'noul', noul }`; choices are answered `{ type: 'choice', choice, probabilities }`. Any other
 // question type is refused with 400, as OpenRouter refuses the `boolean` spelling, and any question key the
 // engine (src/background/engine/pipeline.ts) or the key check (validate.ts) does not ask is recorded in
-// `state.unknown`, so a change to either shows up here instead of as a silently default answer.
+// `state.unknown`, so a change to either shows up here instead of as a silently default answer. Every question gets
+// an answer of its asked type, as the client requires (client.ts: anything else is not-jev).
 import { createServer } from 'node:http'
 
 /** Every key prefix JevPaper asks: round one (role_, ev_, ex_, cv_), round two (pk_, vf_, ql_, wk_), the key check (ok) */

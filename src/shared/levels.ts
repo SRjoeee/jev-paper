@@ -10,6 +10,7 @@ export const LEVELS: Record<Level, { evidence: number; caveats: number }> = {
   3: { evidence: 3, caveats: 20 },
 }
 
+/** P(claim) from which an abstract sentence is a claim: shown, given round two, and scored as detected */
 export const CLAIM_THRESHOLD = 0.5
 
 export type Tone = 'claim' | 'evidence' | 'candidate' | 'caveat'

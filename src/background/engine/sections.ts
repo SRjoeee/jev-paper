@@ -35,10 +35,42 @@ export function windows(units: readonly Unit[], fixes: boolean, max = 180): Wind
   return out
 }
 
-/** evidenceWeight5 of the experiment */
-export const evidenceWeight = (w: Window, fixes: boolean): number =>
-  isAdmin(w.title, w.sec, fixes) ? 0 : RESTATING.test(w.title) ? 0.2 : RELATED.test(w.title) ? 0.3 : isAppendix(w.units[0]!.sec) ? 0.8 : 1
+/** What a section's title and number say about it. The flags are not exclusive ("Introduction and Related Work"
+ *  is both restating and related), and each rule below reads them in the experiment's order. */
+export interface SectionPolicy {
+  admin: boolean
+  restating: boolean
+  related: boolean
+  appendix: boolean
+}
 
-export const caveatWeight = (w: Window, fixes: boolean): number => (isAdmin(w.title, w.sec, fixes) || RELATED.test(w.title) ? 0 : 1)
+export const policyOf = (title: string, sec: string, fixes: boolean): SectionPolicy => ({
+  admin: isAdmin(title, sec, fixes),
+  restating: RESTATING.test(title),
+  related: RELATED.test(title),
+  appendix: isAppendix(sec),
+})
 
-export const poolable = (u: Unit, fixes: boolean): boolean => !(RESTATING.test(u.secTitle) || RELATED.test(u.secTitle) || isAdmin(u.secTitle, u.sec, fixes))
+/** Policies read once per section of a paper: the regexes run once per (title, number), not per claim or sentence */
+export function sectionPolicies(fixes: boolean): (title: string, sec: string) => SectionPolicy {
+  const seen = new Map<string, SectionPolicy>()
+  return (title, sec) => {
+    const key = `${sec}\n${title}`
+    const known = seen.get(key)
+    if (known) return known
+    const p = policyOf(title, sec, fixes)
+    seen.set(key, p)
+    return p
+  }
+}
+
+/** evidenceWeight5 of the experiment. LOG.md "v2" weighed restating sections at 0.3, "v3" related work at 0.3 and
+ *  administrative sections at 0; this version's restating 0.2 and appendix 0.8 are in no LOG.md section. All
+ *  weights at 1 lose 4.9 best@1 on dev, within noise (measured 2026-09-25). */
+export const evidenceWeight = (p: SectionPolicy): number => (p.admin ? 0 : p.restating ? 0.2 : p.related ? 0.3 : p.appendix ? 0.8 : 1)
+
+/** Caveats are not looked for in administrative or related-work sections: the experiment's caveatWeight, since v3 */
+export const caveatWeight = (p: SectionPolicy): number => (p.admin || p.related ? 0 : 1)
+
+/** The pick's pool leaves out restating, related-work and administrative sections (LOG.md "v6") */
+export const poolable = (p: SectionPolicy): boolean => !(p.restating || p.related || p.admin)
