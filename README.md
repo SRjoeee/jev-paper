@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/demo-0.1.0.gif" alt="JevPaper on Attention Is All You Need: claims in blue, their evidence in yellow, caveats in pink; clicking a claim jumps to its evidence" width="800">
+  <img src=".github/assets/demo-en-0.2.0.gif" alt="JevPaper on Attention Is All You Need: claims in blue, their evidence in yellow, caveats in pink; clicking a claim jumps to its evidence" width="800">
 </p>
 
 <p align="center"><sub>Real run on <em>Attention Is All You Need</em>: open the paper, the marks appear, click a claim to jump to its evidence, click again to come back, raise the level for caveats and more candidates.</sub></p>
@@ -51,7 +51,7 @@ hallucinate, only sentences to rank.
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src=".github/assets/claim-tip.png" alt="A claim in the abstract with its tip">
+      <img src=".github/assets/claim-tip-en.png" alt="A claim in the abstract with its tip">
       <p><strong>Claims, and where they are delivered.</strong> Each claim in the abstract is marked in blue.
       Hover it to see its role (method, result, contribution); click it to jump to the body sentence that
       delivers it, marked in yellow. Click that sentence's tip to jump back.</p>
@@ -64,7 +64,7 @@ hallucinate, only sentences to rank.
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src=".github/assets/menu.png" alt="The level menu" width="260">
+      <img src=".github/assets/menu-en.png" alt="The level menu" width="260">
       <p><strong>Three levels, one button.</strong> Claims and evidence; plus assumptions and limitations; plus
       more candidates. The menu is also the legend. Changing the level repaints instantly and asks for nothing
       new.</p>
@@ -90,14 +90,13 @@ And the details that make it pleasant to read with:
 ## Install
 
 > [!NOTE]
-> JevPaper is a preview. Its interface is in Chinese for now; an English interface is on the roadmap.
+> JevPaper is a preview. Its interface speaks English or Chinese, following the language of your Chrome.
 
-1. Download `jev-paper-0.1.0-chrome.zip` from the [latest release](https://github.com/SRjoeee/jev-paper/releases)
+1. Download `jev-paper-0.2.0-chrome.zip` from the [latest release](https://github.com/SRjoeee/jev-paper/releases)
    and unzip it into a folder.
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick that folder.
-3. Pin JevPaper, click its icon, paste an [OpenRouter key](https://openrouter.ai/keys) and press 「开始使用」
-   (*Get started*).
-4. A short guide opens. Press 「试一试」 (*Try it*) to open *Attention Is All You Need* and watch it get marked.
+3. Pin JevPaper, click its icon, paste an [OpenRouter key](https://openrouter.ai/keys) and press **Get started**.
+4. A short guide opens. Press **Try it** to open *Attention Is All You Need* and watch it get marked.
 
 After that, open any paper's HTML full text, `arxiv.org/html/<id>`, or its ar5iv page. JevPaper does nothing on
 abstract pages or PDFs.
@@ -204,14 +203,15 @@ while it is still being computed, the unfinished work is dropped.
 </details>
 
 <details>
-<summary><strong>Is the interface available in English?</strong></summary>
+<summary><strong>Which languages does it speak?</strong></summary>
 
-Not yet. The interface is in Chinese in this preview. The marks, of course, are on the paper itself.
+English and Chinese. JevPaper follows the language of your Chrome: Chinese in a Chinese Chrome, English everywhere
+else. The marks, of course, are on the paper itself, in whatever language it is written.
 </details>
 
 ## Roadmap
 
-- [ ] English interface
+- [x] English interface
 - [ ] Chrome Web Store listing
 - [ ] Firefox
 

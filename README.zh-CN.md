@@ -79,9 +79,9 @@ JevPaper 完全不生成文字。每一处标记都是作者自己写下的句�
 ## 安装
 
 > [!NOTE]
-> JevPaper 目前是预览版，界面为中文；英文界面在路线图上。
+> JevPaper 目前是预览版。界面跟随你的 Chrome 语言，显示中文或英文。
 
-1. 从 [最新发布](https://github.com/SRjoeee/jev-paper/releases) 下载 `jev-paper-0.1.0-chrome.zip`，解压到一个文件夹。
+1. 从 [最新发布](https://github.com/SRjoeee/jev-paper/releases) 下载 `jev-paper-0.2.0-chrome.zip`，解压到一个文件夹。
 2. 打开 `chrome://extensions`，打开右上角的「开发者模式」，点「加载已解压的扩展程序」，选中那个文件夹。
 3. 把 JevPaper 固定到工具栏，点图标，粘贴一把 [OpenRouter key](https://openrouter.ai/keys)，点「开始使用」。
 4. 会打开一页简短的引导。点「试一试」，打开《Attention Is All You Need》，看它被标出来。
@@ -162,14 +162,14 @@ JevPaper 需要的是判断，不是文章：大量小的、带类型的、并�
 </details>
 
 <details>
-<summary><strong>有英文界面吗？</strong></summary>
+<summary><strong>支持哪些语言？</strong></summary>
 
-暂时没有，预览版界面是中文。当然，标记本身就在论文原文上。
+中文和英文。JevPaper 跟随 Chrome 的语言：中文 Chrome 显示中文，其他语言一律显示英文。当然，标记本身就在论文原文上，论文是什么语言就是什么语言。
 </details>
 
 ## 路线图
 
-- [ ] 英文界面
+- [x] 英文界面
 - [ ] 上架 Chrome 应用商店
 - [ ] Firefox
 
