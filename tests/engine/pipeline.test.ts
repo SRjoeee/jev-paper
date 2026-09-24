@@ -16,9 +16,21 @@ const units: Unit[] = [
   unit('s007', 'body', 'A1', 'Appendix A Contributions', 'Bob ran the experiments.'),
 ]
 
+/** The shapes of state the engine builds: round one's role/evidence/caveat requests, and round two's. */
+type EngineState =
+  | { abstract: Record<string, string> }
+  | { abstract: Record<string, string>; section: { title: string; sentences: Record<string, string> } }
+  | { paper: { title: string; abstract: string }; section: string; passage: Record<string, string> }
+  | { abstract: Record<string, string>; candidates: Record<string, string> }
+
+const sectionTitle = (state: unknown): string | undefined => {
+  const s = state as EngineState
+  return 'section' in s && typeof s.section === 'object' ? s.section.title : undefined
+}
+
 /** Deterministic answers; in the appendix window the evidence Choice leans hard on its first sentence */
-function fakeAsk(log: { state: any; questions: Questions }[]) {
-  return async (state: any, questions: Questions): Promise<Answers> => {
+function fakeAsk(log: { state: unknown; questions: Questions }[]) {
+  return async (state: unknown, questions: Questions): Promise<Answers> => {
     log.push({ state, questions })
     const out: Answers = {}
     for (const [k, q] of Object.entries(questions)) {
@@ -27,7 +39,7 @@ function fakeAsk(log: { state: any; questions: Questions }[]) {
       else if (q.type === 'choice' && k.startsWith('cv_')) out[k] = { type: 'choice', choice: 'none', probabilities: { none: 0.6, limitation: 0.4 } }
       else if (q.type === 'choice') {
         const ids = Object.keys(q.criteria)
-        const lean = state.section?.title?.includes('Contributions') ? 1 : 0.5
+        const lean = sectionTitle(state)?.includes('Contributions') ? 1 : 0.5
         out[k] = { type: 'choice', choice: ids[0]!, probabilities: Object.fromEntries(ids.map((id, i) => [id, i === 0 ? lean : (1 - lean) / Math.max(1, ids.length - 1)])) }
       }
     }
@@ -37,10 +49,11 @@ function fakeAsk(log: { state: any; questions: Questions }[]) {
 
 describe('digest', () => {
   it('asks round one (roles, one evidence request per window, one caveat request per chunk) then round two in parts of at most 55', async () => {
-    const log: { state: any; questions: Questions }[] = []
+    const log: { state: unknown; questions: Questions }[] = []
     await digest({ title: 'T', units }, fakeAsk(log))
-    const roundOne = log.filter(r => !('candidates' in r.state))
-    const roundTwo = log.filter(r => 'candidates' in r.state)
+    const hasCandidates = (state: unknown): boolean => typeof state === 'object' && state !== null && 'candidates' in state
+    const roundOne = log.filter(r => !hasCandidates(r.state))
+    const roundTwo = log.filter(r => hasCandidates(r.state))
     expect(roundOne).toHaveLength(1 + 2 + 2) // roles + windows S1, A1 + one caveat chunk per window
     expect(roundTwo.length).toBeGreaterThan(0)
     expect(roundTwo.every(r => Object.keys(r.questions).length <= 55)).toBe(true)
@@ -54,7 +67,7 @@ describe('digest', () => {
   })
 
   it('keeps list units out of every request', async () => {
-    const log: { state: any; questions: Questions }[] = []
+    const log: { state: unknown; questions: Questions }[] = []
     const withList = [...units, { ...unit('s008', 'body', 'A2', 'Appendix B Authors', 'Ann Lee Bo Chen …'), list: true as const }]
     await digest({ title: 'T', units: withList }, fakeAsk(log))
     expect(JSON.stringify(log.map(r => r.state))).not.toContain('s008')
