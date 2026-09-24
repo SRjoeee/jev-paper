@@ -33,8 +33,9 @@ fieldset.seg { margin: 0; padding: 3px; border: 0; display: grid; grid-template-
 @keyframes jp-spin { to { rotate: 360deg; } }
 .layers { display: grid; gap: 2px; margin: 0 -6px; }
 .rule { height: 1px; margin: 0 -16px; background: var(--jp-line); }
-.status { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--jp-text-muted); font-variant-numeric: tabular-nums; }
-.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--jp-line); }
+.status { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--jp-text-muted); font-variant-numeric: tabular-nums; }
+/* Centred on the first line, also when a long error wraps to a second; never squeezed by the text */
+.status .dot { flex: none; width: 7px; height: 7px; margin-top: calc((1lh - 7px) / 2); border-radius: 50%; background: var(--jp-line); }
 .status .dot[data-state="done"] { background: var(--jp-success); }
 .status .dot[data-state="error"] { background: var(--jp-danger); }
 .account { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--jp-text-muted); }

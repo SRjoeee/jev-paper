@@ -1,9 +1,10 @@
 // The page's own UI (spec §5.4–5.5, §13): a floating menu button, menu 1a as a radio group, the hover tip, the
 // first-run bubble, a polite status region, and focusable anchors over the marks for the keyboard path.
 import type { Theme } from '@/content/bands/palette'
-import { COPY } from '@/shared/copy'
+import { COPY, LANG } from '@/shared/copy'
 import type { ErrorCode } from '@/shared/errors'
 import { highlighterSvg } from '@/shared/icon'
+import { LANG_TAG } from '@/shared/lang'
 import { LAYERS, type Level } from '@/shared/levels'
 import layersCss from '@/shared/layers.css?inline'
 import tokensCss from '@/shared/tokens.css?inline'
@@ -53,6 +54,8 @@ export class PageUi {
 
   constructor(private doc: Document, private events: PageUiEvents) {
     this.host = doc.createElement('jevpaper-ui')
+    // The paper's own `lang` is not the interface's: screen readers and font fallback follow this one
+    this.host.lang = LANG_TAG[LANG]
     const root = this.host.attachShadow({ mode: 'open' })
     const style = doc.createElement('style')
     style.textContent = `${tokensCss}\n${layersCss}\n${pageCss}`
@@ -101,6 +104,7 @@ export class PageUi {
     doc.body.append(this.host)
 
     this.anchorsHost = doc.createElement('jevpaper-anchors')
+    this.anchorsHost.lang = LANG_TAG[LANG]
     this.anchorsHost.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0'
     this.anchorsRoot = this.anchorsHost.attachShadow({ mode: 'open' })
     const anchorStyle = doc.createElement('style')

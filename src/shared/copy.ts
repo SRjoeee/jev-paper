@@ -1,13 +1,14 @@
 import type { ErrorCode } from './errors'
+import { type Lang, uiLang } from './lang'
 import type { CaveatType, Role } from './result'
 
-// Every string the reader sees. One term for the product's output: 标记.
+// Every string the reader sees, in Chinese and English. One term for the product's output: 标记 / mark.
 const LEDE = '打开 arXiv 论文，重点自动标出来。'
 
-export const COPY = {
+const ZH = {
   brand: 'JevPaper',
   lede: LEDE,
-  /** The manifest's description (wxt.config.ts), shown on chrome://extensions */
+  /** The manifest's description (scripts/locales.ts), shown on chrome://extensions */
   description: LEDE,
   layers: { 1: '主张与证据', 2: '假设与局限', 3: '更多候选' } as const,
   layersLabel: '标记层次',
@@ -80,3 +81,98 @@ export const COPY = {
     cta: '试一试：Attention Is All You Need',
   },
 } as const
+
+/** The Chinese copy with its literal strings widened: the shape every language fills, key for key */
+type Widen<T> = T extends string ? string : T extends (...args: infer A) => infer R ? (...args: A) => Widen<R> : { readonly [K in keyof T]: Widen<T[K]> }
+export type Copy = Widen<typeof ZH>
+
+// English follows .claude/skills/better-writing: sentence case, verbs first on buttons, errors that say how to fix
+const EN_LEDE = 'Open an arXiv paper and its key points are marked for you.'
+const EN_CLAIM = 'Claim'
+const marks = (n: number) => (n === 1 ? '1 mark' : `${n} marks`)
+
+const EN = {
+  brand: 'JevPaper',
+  lede: EN_LEDE,
+  description: EN_LEDE,
+  layers: { 1: 'Claims & evidence', 2: 'Assumptions & limits', 3: 'More candidates' },
+  layersLabel: 'What to mark',
+  button: 'JevPaper: choose what to mark',
+  bubble: 'Click here to choose what to mark',
+  status: {
+    marked: (n: number) => `${marks(n)} on this page`,
+    pageMarked: (n: number) => `${marks(n)} on this page`,
+    none: 'Found nothing to mark in this paper',
+    computing: 'Marking…',
+    notPaper: 'Open any arXiv paper’s HTML page to start',
+  },
+  role: { method: 'Method', result: 'Result', contribution: 'Contribution', background: 'Background' },
+  roleFallback: EN_CLAIM,
+  caveat: { assumption: 'Assumption', condition: 'Condition', limitation: 'Limitation', evaluation: 'Evaluation caveat', unsupported: 'Unsupported', tradeoff: 'Trade-off' },
+  caveatFallback: 'Assumption or limit',
+  tip: {
+    // A claim without a confident role is labelled with the fallback, which here is the tip's own first word
+    claim: (no: number, role: string) => (role === EN_CLAIM ? `Claim ${no} · Click to see its evidence` : `Claim ${no} · ${role} · Click to see its evidence`),
+    evidence: (nos: readonly number[], candidate: boolean) => `Delivers ${nos.length === 1 ? 'claim' : 'claims'} ${nos.join(', ')}${candidate ? ' (candidate)' : ''} · Click to go back`,
+  },
+  anchor: {
+    claim: (no: number) => `Claim ${no}: jump to its evidence`,
+    evidence: (no: number) => `Evidence: go back to claim ${no}`,
+  },
+  pageError: {
+    'no-key': 'No API key yet. Click here to add one',
+    'invalid-key': 'The API key is invalid. Click here to change it',
+    credit: 'The API key is out of credit. Click here to change it',
+    busy: 'The service is busy. Click here to try again',
+    offline: 'Can’t reach the service. Check your network, then click here to try again',
+    'not-jev': 'This endpoint didn’t return a Jev result. Click here to check the settings',
+    aborted: 'The service is busy. Click here to try again',
+  },
+  setup: {
+    providerLabel: 'Service',
+    providers: { openrouter: 'OpenRouter', typesafe: 'TypeSafe', custom: 'Custom' },
+    keyLabel: 'API key',
+    keyPlaceholder: { openrouter: 'sk-or-…', typesafe: '', custom: '' },
+    getKey: { openrouter: 'Get a key from OpenRouter ↗', typesafe: 'Get a key from TypeSafe ↗' },
+    localOnly: 'Stays on this device',
+    endpointLabel: 'Endpoint',
+    endpointPlaceholder: 'https://example.com/v1/systemone',
+    modelLabel: 'Model',
+    submit: 'Get started',
+    errors: {
+      empty: 'Paste your API key',
+      'invalid-key': 'This key is invalid. Check that you copied all of it, or create a new one',
+      credit: 'This key is out of credit. Add credit, or use another key',
+      offline: 'Can’t reach the service. Check your network and try again',
+      'not-jev': 'This endpoint didn’t return a Jev result. Check the endpoint and model name',
+      busy: 'The service is busy. Try again in a moment',
+      permission: 'Allow access to this endpoint to use it',
+      endpoint: 'Enter an endpoint starting with https:// (http:// for localhost) and a model name',
+    },
+  },
+  ready: { change: 'Change', guideAgain: 'Show guide' },
+  guide: {
+    title: 'JevPaper is ready',
+    lede: 'Open any arXiv paper’s HTML page, and JevPaper marks its key points right in the text.',
+    colors: 'Three colours',
+    colorNotes: {
+      1: 'A claim in the abstract, and the sentence in the body that delivers it',
+      2: 'Assumptions and limits you need to know',
+      3: 'Other sentences that may deliver a claim',
+    },
+    tipsTitle: 'How to use it',
+    tips: ['Click a claim in the abstract to jump to the sentence that delivers it. Click that sentence to go back.', 'Click the button at the bottom right to choose what to mark.'],
+    cta: 'Try it: Attention Is All You Need',
+  },
+} satisfies Copy
+
+const BY_LANG: Record<Lang, Copy> = { zh: ZH, en: EN }
+
+/** The copy of one language; tests and the build's locale files ask for a language by name */
+export function copyFor(lang: Lang): Copy {
+  return BY_LANG[lang]
+}
+
+/** The interface language of this page, content script or service worker (src/shared/lang.ts), read once */
+export const LANG: Lang = uiLang()
+export const COPY: Copy = copyFor(LANG)
