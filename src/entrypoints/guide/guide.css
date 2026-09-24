@@ -1,0 +1,29 @@
+html, body { margin: 0; }
+body { min-height: 100vh; background: var(--jp-field); font: 400 15px/1.55 var(--jp-font); color: var(--jp-text); -webkit-font-smoothing: antialiased; }
+.guide { max-width: 520px; margin: 0 auto; padding: 72px 24px 48px; display: grid; gap: 32px; }
+header { display: grid; gap: 10px; justify-items: start; }
+.mark { width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; color: #1f2630; background: linear-gradient(160deg, #ffe36e, #ffd23a); }
+h1 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 650; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--jp-text-muted); }
+.lede { margin: 0; color: var(--jp-text-muted); text-wrap: pretty; max-width: 60ch; }
+.legend, .tips { margin: 0; padding: 0; display: grid; gap: 12px; }
+.legend { list-style: none; }
+.legend li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; align-items: start; }
+.legend strong { display: block; font-weight: 500; }
+.legend .note { display: block; font-size: 13px; color: var(--jp-text-muted); }
+.stroke { display: inline-flex; gap: 2px; margin-top: 6px; }
+.stroke i { display: block; width: 9px; height: 10px; border-radius: 2px 5px 2px 5px; }
+.stroke i:only-child { width: 20px; }
+.tips { padding-inline-start: 20px; }
+.primary { justify-self: start; min-height: 44px; padding: 0 20px; border-radius: 12px; display: inline-flex; align-items: center; background: var(--jp-ink); color: var(--jp-on-ink); font-weight: 500; text-decoration: none; }
+.primary:focus-visible { outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .primary { transition-property: scale; transition-duration: 150ms; transition-timing-function: ease-out; }
+  .primary:active { scale: 0.96; }
+  /* An infrequent staged entrance: header, colours, tips, then the button, 100 ms apart */
+  .stage { opacity: 0; transform: translateY(12px); filter: blur(4px); animation: jp-enter 400ms ease-out forwards; }
+  .stage:nth-child(2) { animation-delay: 100ms; }
+  .stage:nth-child(3) { animation-delay: 200ms; }
+  .stage:nth-child(4) { animation-delay: 300ms; }
+}
+@keyframes jp-enter { to { opacity: 1; transform: none; filter: blur(0); } }

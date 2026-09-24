@@ -101,8 +101,7 @@ export function Ready({ settings, credentials, onChange }: { settings: Settings;
         <button
           type="button"
           className="link"
-          // '/guide.html' is Task 13's entrypoint; wxt's generated PublicPath union doesn't know it yet
-          onClick={() => void browser.tabs.create({ url: browser.runtime.getURL('/guide.html' as never) })}
+          onClick={() => void browser.tabs.create({ url: browser.runtime.getURL('/guide.html') })}
         >
           {COPY.ready.guideAgain}
         </button>

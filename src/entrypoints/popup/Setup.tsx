@@ -51,8 +51,7 @@ export function Setup({ initial, onDone }: { initial: Credentials; onDone(): voi
     await saveCredentials({ provider, baseUrl: url, model: model.trim(), apiKey: key })
     if (!(await getSettings()).guideSeen) {
       await patchSettings({ guideSeen: true })
-      // '/guide.html' is Task 13's entrypoint; wxt's generated PublicPath union doesn't know it yet
-      await browser.tabs.create({ url: browser.runtime.getURL('/guide.html' as never) })
+      await browser.tabs.create({ url: browser.runtime.getURL('/guide.html') })
     }
     setBusy(false)
     busyRef.current = false
