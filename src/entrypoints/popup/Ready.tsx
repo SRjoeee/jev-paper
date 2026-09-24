@@ -29,7 +29,13 @@ export function Ready({ settings, credentials, onChange }: { settings: Settings;
   const [status, setStatus] = useState<PageStatus | null | undefined>(undefined)
   const rows = useRef<(HTMLButtonElement | null)[]>([])
   useEffect(() => {
-    void pageStatus().then(setStatus)
+    let cancelled = false
+    void pageStatus().then(s => {
+      if (!cancelled) setStatus(s)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const choose = (level: Level, focus: boolean) => {
@@ -73,12 +79,16 @@ export function Ready({ settings, credentials, onChange }: { settings: Settings;
         ))}
       </div>
       <div className="rule" />
-      {status !== undefined && (
-        <p className="status" role="status">
-          <span className="dot" data-state={status?.state ?? 'idle'} aria-hidden="true" />
-          {statusLine(status)}
-        </p>
-      )}
+      {/* Stable from first paint, empty until the status arrives (spec §13): a role="status" region must exist
+          before its content changes for the change to be announced. */}
+      <p className="status" role="status">
+        {status !== undefined && (
+          <>
+            <span className="dot" data-state={status?.state ?? 'idle'} aria-hidden="true" />
+            {statusLine(status)}
+          </>
+        )}
+      </p>
       <div className="account">
         <span>
           {COPY.setup.providers[credentials.provider]} · <span className="mono">{mask(credentials.apiKey)}</span>

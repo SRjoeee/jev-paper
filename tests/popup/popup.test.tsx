@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { App } from '@/entrypoints/popup/App'
+import { COPY } from '@/shared/copy'
 import { getCredentials, saveCredentials } from '@/shared/credentials'
 import { getSettings, patchSettings } from '@/shared/settings'
 
@@ -81,6 +82,72 @@ describe('popup', () => {
     await submit(el)
     expect(q(el, '#jp-error').textContent).toBe('请填写以 https:// 开头的地址（本机地址可用 http://）和模型名')
     expect(q(el, '#jp-endpoint').getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('a custom endpoint that answers but not as Jev points the error at the endpoint field', async () => {
+    vi.spyOn(browser.permissions, 'request').mockImplementation(async () => true)
+    vi.spyOn(browser.runtime, 'sendMessage').mockImplementation(async () => ({ ok: false, error: 'not-jev' }))
+    const el = await render()
+    await act(async () => q<HTMLInputElement>(el, 'input[value="custom"]').click())
+    await act(async () => type(q(el, '#jp-endpoint'), 'https://example.com/v1/systemone'))
+    await act(async () => type(q(el, '#jp-model'), 'jev-latest'))
+    await act(async () => type(q(el, '#jp-key'), 'k'))
+    await submit(el)
+    const endpoint = q<HTMLInputElement>(el, '#jp-endpoint')
+    expect(endpoint.getAttribute('aria-invalid')).toBe('true')
+    expect(endpoint.getAttribute('aria-describedby')).toBe('jp-error')
+    expect(document.activeElement).toBe(endpoint)
+    expect(q(el, '#jp-error').textContent).toBe(COPY.setup.errors['not-jev'])
+  })
+
+  it('a denied permission on a custom endpoint points the error at the endpoint field', async () => {
+    vi.spyOn(browser.permissions, 'request').mockImplementation(async () => false)
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage')
+    const el = await render()
+    await act(async () => q<HTMLInputElement>(el, 'input[value="custom"]').click())
+    await act(async () => type(q(el, '#jp-endpoint'), 'https://example.com/v1/systemone'))
+    await act(async () => type(q(el, '#jp-model'), 'jev-latest'))
+    await act(async () => type(q(el, '#jp-key'), 'k'))
+    await submit(el)
+    const endpoint = q<HTMLInputElement>(el, '#jp-endpoint')
+    expect(endpoint.getAttribute('aria-invalid')).toBe('true')
+    expect(endpoint.getAttribute('aria-describedby')).toBe('jp-error')
+    expect(document.activeElement).toBe(endpoint)
+    expect(q(el, '#jp-error').textContent).toBe(COPY.setup.errors.permission)
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('on a preset provider a not-jev reply stays on the key field', async () => {
+    vi.spyOn(browser.runtime, 'sendMessage').mockImplementation(async () => ({ ok: false, error: 'not-jev' }))
+    const el = await render()
+    await act(async () => type(q(el, '#jp-key'), 'sk-or-something'))
+    await submit(el)
+    const key = q<HTMLInputElement>(el, '#jp-key')
+    expect(key.getAttribute('aria-invalid')).toBe('true')
+    expect(key.getAttribute('aria-describedby')).toBe('jp-error')
+    expect(document.activeElement).toBe(key)
+    expect(q(el, '#jp-error').textContent).toBe(COPY.setup.errors['not-jev'])
+  })
+
+  it('double submit while busy sends validate once', async () => {
+    let resolve: (value: unknown) => void = () => {}
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockImplementation(
+      () =>
+        new Promise(r => {
+          resolve = r
+        }),
+    )
+    vi.spyOn(browser.tabs, 'create').mockResolvedValue({} as never)
+    const el = await render()
+    await act(async () => type(q(el, '#jp-key'), 'sk-or-good'))
+    const form = q<HTMLFormElement>(el, 'form')
+    await act(async () => {
+      form.requestSubmit()
+      form.requestSubmit()
+    })
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    await act(async () => resolve({ ok: true }))
+    await act(async () => {})
   })
 
   it('with a key: the layer rows, the page status and the masked key; a row applies its level', async () => {

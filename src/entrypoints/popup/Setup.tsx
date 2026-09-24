@@ -10,6 +10,8 @@ type SetupError = keyof typeof COPY.setup.errors
 const PROVIDERS: ProviderId[] = ['openrouter', 'typesafe', 'custom']
 /** https anywhere, or plain http on this machine (a local proxy) */
 const ENDPOINT = /^(https:\/\/[^/\s]+|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)\/\S*$/
+/** On a custom endpoint these errors are about the address, not the key (spec §13: an error moves focus to the field it concerns) */
+const ENDPOINT_ERRORS: SetupError[] = ['endpoint', 'permission', 'not-jev']
 
 export function Setup({ initial, onDone }: { initial: Credentials; onDone(): void }) {
   const [provider, setProvider] = useState<ProviderId>(initial.provider)
@@ -20,19 +22,26 @@ export function Setup({ initial, onDone }: { initial: Credentials; onDone(): voi
   const [error, setError] = useState<SetupError | null>(null)
   const keyRef = useRef<HTMLInputElement>(null)
   const endpointRef = useRef<HTMLInputElement>(null)
+  // A ref, not just `busy` state: two rapid calls of `submit` before the first re-render must still see each other
+  const busyRef = useRef(false)
+
+  const isEndpointError = (code: SetupError) => provider === 'custom' && ENDPOINT_ERRORS.includes(code)
 
   const fail = (code: SetupError) => {
     setError(code)
     setBusy(false)
-    ;(code === 'endpoint' ? endpointRef : keyRef).current?.focus()
+    busyRef.current = false
+    ;(isEndpointError(code) ? endpointRef : keyRef).current?.focus()
   }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
+    if (busyRef.current) return
     const key = apiKey.trim()
     const url = baseUrl.trim()
     if (provider === 'custom' && !(ENDPOINT.test(url) && model.trim())) return fail('endpoint')
     if (!key) return fail('empty')
+    busyRef.current = true
     setBusy(true)
     setError(null)
     // The permission prompt must come straight from the click: nothing is awaited before it
@@ -46,10 +55,12 @@ export function Setup({ initial, onDone }: { initial: Credentials; onDone(): voi
       await browser.tabs.create({ url: browser.runtime.getURL('/guide.html' as never) })
     }
     setBusy(false)
+    busyRef.current = false
     onDone()
   }
 
-  const keyError = error !== null && error !== 'endpoint'
+  const endpointScoped = error !== null && isEndpointError(error)
+  const keyError = error !== null && !endpointScoped
   const link = keysUrl(provider)
   return (
     <form onSubmit={submit} noValidate>
@@ -88,9 +99,14 @@ export function Setup({ initial, onDone }: { initial: Credentials; onDone(): voi
               placeholder={COPY.setup.endpointPlaceholder}
               value={baseUrl}
               onChange={e => setBaseUrl(e.target.value)}
-              aria-invalid={error === 'endpoint' || undefined}
-              aria-describedby={error === 'endpoint' ? 'jp-error' : undefined}
+              aria-invalid={endpointScoped || undefined}
+              aria-describedby={endpointScoped ? 'jp-error' : undefined}
             />
+            {endpointScoped && error && (
+              <p className="error" id="jp-error">
+                {COPY.setup.errors[error]}
+              </p>
+            )}
           </div>
           <div className="field">
             <label htmlFor="jp-model">{COPY.setup.modelLabel}</label>
@@ -125,7 +141,7 @@ export function Setup({ initial, onDone }: { initial: Credentials; onDone(): voi
           )}
           <span>{COPY.setup.localOnly}</span>
         </div>
-        {error && (
+        {keyError && error && (
           <p className="error" id="jp-error">
             {COPY.setup.errors[error]}
           </p>

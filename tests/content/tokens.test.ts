@@ -30,8 +30,9 @@ describe('tokens.css', () => {
           ['tip-fg', 'tip-bg'],
           ['on-ink', 'ink'],
           ['on-accent', 'accent'],
+          ['danger', 'surface'],
         ] as const) expect(contrast(t[pair[0]]!, t[pair[1]]!), `${pair[0]} on ${pair[1]}`).toBeGreaterThanOrEqual(4.5)
-        for (const role of ['accent', 'danger'] as const) expect(contrast(t[role]!, t.surface!), `${role} on surface`).toBeGreaterThanOrEqual(3)
+        for (const role of ['accent', 'success'] as const) expect(contrast(t[role]!, t.surface!), `${role} on surface`).toBeGreaterThanOrEqual(3)
       })
     }
   })
