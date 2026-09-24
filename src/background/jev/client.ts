@@ -50,6 +50,8 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
 
   async function once(state: unknown, questions: Questions, signal?: AbortSignal): Promise<Answers> {
     const body = JSON.stringify({ model: endpoint.model, state, questions: toWire(questions) })
+    /** The previous attempt's status, to tell a lone 503 (retry) from two in a row (spec §6.1: split) */
+    let prevStatus = 0
     for (let attempt = 0; ; attempt++) {
       if (signal?.aborted) throw new JevError('aborted', 'aborted')
       let status = 0
@@ -85,9 +87,12 @@ export function createClient(endpoint: Endpoint, options: ClientOptions = {}): A
       if (status === 403) throw new JevError(CREDIT.test(text) ? 'credit' : 'invalid-key', text.slice(0, 300))
       const retryable = status === 0 || status === 408 || status === 429 || status >= 500
       if (!retryable) throw new JevError('not-jev', `${status} ${text.slice(0, 300)}`)
-      if (status === 503 && attempt >= 1 && Object.keys(questions).length > 1) throw new Split()
+      // spec §6.1: "a request that draws 503 twice is split" — two 503s *in a row*, not a 503 anywhere in the history
+      // (a 500 → 503 sequence keeps retrying at the same size)
+      if (status === 503 && prevStatus === 503 && Object.keys(questions).length > 1) throw new Split()
       if (attempt + 1 >= maxAttempts) throw new JevError(status === 0 ? 'offline' : 'busy', `${status} ${text.slice(0, 300)}`)
       await sleep(status === 429 && retryAfter > 0 ? retryAfter * 1000 : Math.min(8000, 500 * 2 ** attempt) * (0.7 + random() * 0.6))
+      prevStatus = status
     }
   }
 

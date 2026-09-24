@@ -14,12 +14,14 @@ const answering = (body: { questions: Record<string, { type: string; criteria?: 
     return [k, { type: 'choice', choice: first, probabilities: { [first]: 1 } }]
   }))
 const noSleep = { sleep: async () => {}, random: () => 0.5 }
+/** The shape of the JSON body the client sends, for tests that inspect what was sent */
+type WireBody = { model: string; state: unknown; questions: Record<string, { type: string; instructions?: string; criteria?: Record<string, unknown> }> }
 
 describe('createClient', () => {
   it('sends the official spelling with the key and model, and reads answers back', async () => {
-    let seen: { headers: Headers; body: any } | undefined
+    let seen: { headers: Headers; body: WireBody } | undefined
     const ask = createClient(endpoint, { ...noSleep, fetch: async (_url, init) => {
-      seen = { headers: new Headers(init!.headers), body: JSON.parse(init!.body as string) }
+      seen = { headers: new Headers(init!.headers), body: JSON.parse(init!.body as string) as WireBody }
       return json(200, { answers: answering(seen.body), usage: { input_tokens: 10 } })
     } })
     const answers = await ask({ text: 'x' }, { a: yesno('Is it?'), b: choice('Which?', { s1: null, s2: null }) })
@@ -54,6 +56,23 @@ describe('createClient', () => {
     expect(sizes).toEqual([4, 4, 2, 2])
   })
 
+  it('retries a 500 followed by a 503 at full size — only two 503s in a row split', async () => {
+    const sizes: number[] = []
+    const statuses = [500, 503, 200]
+    let calls = 0
+    const ask = createClient(endpoint, { ...noSleep, fetch: async (_u, init) => {
+      const body = JSON.parse(init!.body as string)
+      sizes.push(Object.keys(body.questions).length)
+      const status = statuses[calls]!
+      calls++
+      return status === 200 ? json(200, { answers: answering(body) }) : json(status, 'x')
+    } })
+    const answers = await ask({}, { a: yesno('1'), b: yesno('2'), c: yesno('3'), d: yesno('4') })
+    expect(calls).toBe(3)
+    expect(sizes).toEqual([4, 4, 4])
+    expect(Object.keys(answers).sort()).toEqual(['a', 'b', 'c', 'd'])
+  })
+
   it('does not retry 401 and reports an invalid key', async () => {
     let calls = 0
     const ask = createClient(endpoint, { ...noSleep, fetch: async () => { calls++; return json(401, 'no') } })
@@ -74,8 +93,10 @@ describe('createClient', () => {
   })
 
   it('gives up as busy after six 500s', async () => {
-    const ask = createClient(endpoint, { ...noSleep, fetch: async () => json(500, 'boom') })
+    let calls = 0
+    const ask = createClient(endpoint, { ...noSleep, fetch: async () => { calls++; return json(500, 'boom') } })
     await expect(ask({}, { a: yesno('q') })).rejects.toMatchObject({ code: 'busy' })
+    expect(calls).toBe(6)
   })
 
   it('calls an endpoint that answers but not as Jev not-jev', async () => {
@@ -87,11 +108,61 @@ describe('createClient', () => {
 
   it('stops when aborted', async () => {
     const controller = new AbortController()
+    let calls = 0
     const ask = createClient(endpoint, { ...noSleep, fetch: async (_u, init) => {
+      calls++
       controller.abort()
       throw init!.signal!.reason ?? new DOMException('aborted', 'AbortError')
     } })
     await expect(ask({}, { a: yesno('q') }, controller.signal)).rejects.toMatchObject({ code: 'aborted' })
+    expect(calls).toBe(1)
+  })
+
+  it('treats a per-request timeout as retryable, and a caller abort during it as aborted', async () => {
+    const hang = (init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      if (init.signal?.aborted) {
+        reject(init.signal.reason)
+        return
+      }
+      init.signal!.addEventListener('abort', () => reject(init.signal!.reason))
+    })
+
+    let timeoutCalls = 0
+    const timeoutAsk = createClient(endpoint, {
+      ...noSleep,
+      timeoutMs: 20,
+      maxAttempts: 3,
+      fetch: async (_u, init) => {
+        timeoutCalls++
+        return hang(init!)
+      },
+    })
+    await expect(timeoutAsk({}, { a: yesno('q') })).rejects.toMatchObject({ code: 'offline' })
+    expect(timeoutCalls).toBe(3)
+
+    const controller = new AbortController()
+    const abortAsk = createClient(endpoint, { ...noSleep, timeoutMs: 20_000, fetch: async (_u, init) => hang(init!) })
+    const pending = abortAsk({}, { a: yesno('q') }, controller.signal)
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ code: 'aborted' })
+  })
+
+  it('releases the in-flight slot on failure so later requests are not stuck', async () => {
+    let live = 0
+    let peak = 0
+    let calls = 0
+    const ask = createClient(endpoint, { ...noSleep, maxInFlight: 1, fetch: async (_u, init) => {
+      calls++
+      live++
+      peak = Math.max(peak, live)
+      await new Promise(r => setTimeout(r, 1))
+      live--
+      const isFailure = calls <= 2
+      return isFailure ? json(401, 'no') : json(200, { answers: answering(JSON.parse(init!.body as string)) })
+    } })
+    const results = await Promise.allSettled(Array.from({ length: 4 }, () => ask({}, { a: yesno('q') })))
+    expect(peak).toBe(1)
+    expect(results.map(r => r.status)).toEqual(['rejected', 'rejected', 'fulfilled', 'fulfilled'])
   })
 
   it('never has more requests in flight than the limit', async () => {
