@@ -69,6 +69,8 @@ export function createController(deps: ControllerDeps) {
   let hideTimer = 0
   let unwatch: () => void = () => {}
   let destroyed = false
+  /** Main-thread time of the last paint() — marks, layout and anchors — for the performance budget (spec §10) */
+  let paintMs = 0
 
   const ui = deps.makeUi({
     level: level => void deps.settings.patch({ level }),
@@ -132,9 +134,11 @@ export function createController(deps: ControllerDeps) {
 
   function paint(): void {
     if (!result) return
+    const t0 = performance.now()
     marks = marksFor(result, settings.level).filter(m => page.ranges.has(m.sid))
     layer.paint(marks.map(m => ({ tone: m.tone, ranges: page.ranges.get(m.sid)! })))
     refreshAnchors()
+    paintMs = performance.now() - t0
   }
 
   async function run(): Promise<void> {
@@ -198,6 +202,7 @@ export function createController(deps: ControllerDeps) {
       await run()
     },
     status: (): PageStatus => status,
+    timing: (): { paint: number } => ({ paint: paintMs }),
     paintedMarks: (): PaintMark[] => marks.map(m => ({ tone: m.tone, ranges: page.ranges.get(m.sid)! })),
     hover(hit: Hit | null, x: number): void {
       clearTimeout(hideTimer)

@@ -45,5 +45,7 @@ export default defineContentScript({
       controller.destroy()
     })
     await controller.start()
+    // Read by the end-to-end performance budget (tests/e2e/run.mjs); on our own host, never on the paper
+    document.querySelector('jevpaper-ui')?.setAttribute('data-timing', JSON.stringify({ units: page.busyMs, paint: controller.timing().paint }))
   },
 })
