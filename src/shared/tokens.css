@@ -1,0 +1,44 @@
+/* Colour, type and surface tokens by role (spec §13). One switch: data-theme on the element carrying .jp-theme.
+   Legend swatches are the band hover colours (legible at 10 px); tests/content/tokens.test.ts pins them to
+   BAND_COLORS in src/content/bands/palette.ts. */
+.jp-theme {
+  --jp-surface: #ffffff;
+  --jp-text: #111827;
+  --jp-text-muted: #6b7280;
+  --jp-hover: #f3f5f8;
+  --jp-field: #f4f6f9;
+  --jp-line: #eceef2;
+  --jp-accent: #2563eb;
+  --jp-danger: #c2410c;
+  --jp-ink: #111827;
+  --jp-on-ink: #ffffff;
+  --jp-tip-bg: #1f2630;
+  --jp-tip-fg: #ffffff;
+  --jp-shadow: 0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.06), 0 2px 4px 0 oklch(0 0 0 / 0.04), 0 12px 32px oklch(0 0 0 / 0.1);
+  --jp-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --jp-claim: #cfdfff;
+  --jp-evidence: #ffd95a;
+  --jp-candidate: #ffe9a0;
+  --jp-caveat: #ffc9da;
+  color-scheme: light;
+}
+.jp-theme[data-theme="dark"] {
+  --jp-surface: #22201d;
+  --jp-text: #f5f3f0;
+  --jp-text-muted: #a8a29a;
+  --jp-hover: #2e2b27;
+  --jp-field: #2a2825;
+  --jp-line: #3a3733;
+  --jp-accent: #6ea8fe;
+  --jp-danger: #fb923c;
+  --jp-ink: #f5f3f0;
+  --jp-on-ink: #1f2630;
+  --jp-tip-bg: #f5f3f0;
+  --jp-tip-fg: #1f2630;
+  --jp-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
+  --jp-claim: #2f3f5f;
+  --jp-evidence: #5e4f16;
+  --jp-candidate: #433a1e;
+  --jp-caveat: #5a2e41;
+  color-scheme: dark;
+}

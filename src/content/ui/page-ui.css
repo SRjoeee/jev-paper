@@ -1,0 +1,57 @@
+:host { all: initial; }
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+.root { font: 400 13px/1.4 var(--jp-font); -webkit-font-smoothing: antialiased; color: var(--jp-text); }
+
+.fab {
+  position: fixed; right: 20px; bottom: 24px; z-index: 2147483000;
+  width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--jp-surface); color: var(--jp-text); box-shadow: var(--jp-shadow);
+}
+.fab:focus-visible { outline-offset: 2px; }
+.fab svg { width: 22px; height: 22px; }
+.fab .ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--jp-accent); animation: jp-spin 0.9s linear infinite; pointer-events: none; }
+@keyframes jp-spin { to { rotate: 360deg; } }
+.fab .dot { position: absolute; top: 3px; right: 3px; width: 9px; height: 9px; border-radius: 50%; background: var(--jp-accent); box-shadow: 0 0 0 2px var(--jp-surface); pointer-events: none; }
+.fab[data-state="error"] .dot { background: var(--jp-danger); }
+@media (prefers-reduced-motion: no-preference) {
+  .fab { transition-property: scale; transition-duration: 150ms; transition-timing-function: ease-out; }
+  .fab:active { scale: 0.96; }
+}
+
+/* Menu 1a: 14 px radius around 6 px padding and 8 px rows (concentric) */
+.menu {
+  position: fixed; right: 20px; bottom: 82px; z-index: 2147483000;
+  min-width: 150px; padding: 6px; display: grid; gap: 2px; border-radius: 14px;
+  background: var(--jp-surface); box-shadow: var(--jp-shadow);
+  opacity: 0; translate: 0 4px; visibility: hidden;
+}
+.menu[data-open] { opacity: 1; translate: 0 0; visibility: visible; }
+.menu[data-closing] { translate: 0 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .menu { transition-property: opacity, translate, visibility; transition-duration: 100ms; transition-timing-function: ease-out; }
+  .menu[data-open] { transition-duration: 150ms; }
+}
+@media (prefers-reduced-motion: reduce) { .menu, .menu[data-closing] { translate: none; } }
+
+/* Menu rows and their colour strokes: src/shared/layers.css (shared with the popup) */
+
+.tip {
+  position: fixed; z-index: 2147483001; max-width: calc(100vw - 16px);
+  padding: 4px 8px; border: 0; border-radius: 6px;
+  background: var(--jp-tip-bg); color: var(--jp-tip-fg); box-shadow: 0 4px 12px oklch(0 0 0 / 0.2);
+  font: inherit; font-size: 12px; line-height: 1.4; white-space: nowrap;
+}
+button.tip { cursor: pointer; }
+button.tip:focus-visible { outline-offset: 2px; }
+@media (hover: hover) { button.tip:hover { background: var(--jp-accent); color: #ffffff; } }
+
+.bubble {
+  position: fixed; right: 76px; bottom: 34px; z-index: 2147483000;
+  padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+  background: var(--jp-tip-bg); color: var(--jp-tip-fg); box-shadow: 0 4px 12px oklch(0 0 0 / 0.2);
+}
+.bubble::after { content: ""; position: absolute; right: -5px; top: 50%; translate: 0 -50%; border: 5px solid transparent; border-right: 0; border-left-color: var(--jp-tip-bg); }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

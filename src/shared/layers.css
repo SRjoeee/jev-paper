@@ -1,0 +1,16 @@
+.row {
+  display: grid; grid-template-columns: 20px auto; align-items: center; gap: 10px;
+  height: 34px; padding: 0 14px 0 10px; border: 0; border-radius: 8px; background: none;
+  font: inherit; color: var(--jp-text-muted); text-align: start; white-space: nowrap; cursor: pointer;
+}
+.row[data-lit] { color: var(--jp-text); font-weight: 500; }
+.row:focus-visible { outline-offset: -2px; }
+@media (hover: hover) { .row:hover { background: var(--jp-hover); } }
+.stroke { display: inline-flex; gap: 2px; opacity: 0.42; filter: saturate(0.5); }
+.row[data-lit] .stroke { opacity: 1; filter: none; }
+.stroke i { display: block; width: 9px; height: 10px; border-radius: 2px 5px 2px 5px; }
+.stroke i:only-child { width: 20px; }
+@media (prefers-reduced-motion: no-preference) {
+  .row { transition-property: color, background-color; transition-duration: 120ms; transition-timing-function: ease-out; }
+  .stroke { transition-property: opacity, filter; transition-duration: 120ms; transition-timing-function: ease-out; }
+}
