@@ -1,5 +1,6 @@
 // End-to-end: the built extension (pnpm build:e2e) in Chromium, arXiv pages served from fixtures, arXiv's own
-// assets from the network, Jev from a local fake. No key, no cost. Run: pnpm e2e
+// assets from the network, Jev from a local fake. No key, no cost. The scenarios run in a Chinese browser, then the
+// English ones in an English browser. Run: pnpm e2e
 import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { mkdtemp } from 'node:fs/promises'
@@ -20,28 +21,8 @@ const PAGES = { '1706.03762': 'jev/1706.03762v7.html', '2312.17141': 'arxiv/2312
 const BANDS = '.jevpaper-bands > i'
 
 const jev = await startFakeJev()
-const context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir(), 'jevpaper-e2e-')), {
-  channel: 'chromium',
-  args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
-  // Playwright turns the back/forward cache off; a reader's Chrome has it on, and going back to a paper restores it
-  ignoreDefaultArgs: ['--disable-back-forward-cache'],
-  viewport: { width: 1280, height: 900 },
-})
 // The network is closed except for arxiv.org's own assets (Ruling 4) and the fake Jev on 127.0.0.1
 const blocked = new Set()
-await context.route('**/*', route => {
-  const url = new URL(route.request().url())
-  if (url.protocol === 'chrome-extension:' || url.hostname === '127.0.0.1') return route.continue()
-  if (url.protocol === 'https:' && url.hostname === 'arxiv.org') {
-    const m = url.pathname.match(/^\/html\/([^/]+?)\/?$/)
-    if (m && PAGES[m[1]]) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: readFileSync(join(ROOT, 'tests/fixtures', PAGES[m[1]]), 'utf8') })
-    // Somewhere else on arXiv to navigate to: an abstract page, as a tiny local body
-    if (url.pathname.startsWith('/abs/')) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>abs</title><p>An abstract page.</p>' })
-    return route.continue()
-  }
-  blocked.add(url.origin)
-  return route.abort()
-})
 // Anything the extension logs as a warning or an error is a finding, whichever scenario it happens in
 const logged = []
 const listen = (where, target) =>
@@ -51,11 +32,47 @@ const listen = (where, target) =>
       if (where === 'service worker' || at.startsWith('chrome-extension://')) logged.push(`${where}: [${m.type()}] ${m.text()}`)
     }
   })
-context.on('page', page => listen('page', page))
-let [worker] = context.serviceWorkers()
-if (!worker) worker = await context.waitForEvent('serviceworker')
-listen('service worker', worker)
-const extensionId = new URL(worker.url()).host
+
+/** The browser the scenarios run in: the Chinese scenarios in one, then the English ones in a second */
+let context
+let worker
+let extensionId
+/**
+ * A fresh browser and profile in one UI language, which picks the interface's (src/shared/lang.ts). `--lang` sets
+ * it on Linux and Windows. Chrome on macOS ignores `--lang` and follows the system's language; there the emulated
+ * locale is what the extension's pages and content script read from chrome.i18n.getUILanguage(). The service worker
+ * shows no text.
+ */
+async function launch(lang, options = {}) {
+  context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir(), 'jevpaper-e2e-')), {
+    channel: 'chromium',
+    args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`, `--lang=${lang}`],
+    locale: lang,
+    // Playwright turns the back/forward cache off; a reader's Chrome has it on, and going back to a paper restores it
+    ignoreDefaultArgs: ['--disable-back-forward-cache'],
+    viewport: { width: 1280, height: 900 },
+    ...options,
+  })
+  await context.route('**/*', route => {
+    const url = new URL(route.request().url())
+    if (url.protocol === 'chrome-extension:' || url.hostname === '127.0.0.1') return route.continue()
+    if (url.protocol === 'https:' && url.hostname === 'arxiv.org') {
+      const m = url.pathname.match(/^\/html\/([^/]+?)\/?$/)
+      if (m && PAGES[m[1]]) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: readFileSync(join(ROOT, 'tests/fixtures', PAGES[m[1]]), 'utf8') })
+      // Somewhere else on arXiv to navigate to: an abstract page, as a tiny local body
+      if (url.pathname.startsWith('/abs/')) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>abs</title><p>An abstract page.</p>' })
+      return route.continue()
+    }
+    blocked.add(url.origin)
+    return route.abort()
+  })
+  context.on('page', page => listen('page', page))
+  ;[worker] = context.serviceWorkers()
+  if (!worker) worker = await context.waitForEvent('serviceworker')
+  listen('service worker', worker)
+  extensionId = new URL(worker.url()).host
+}
+await launch('zh-CN')
 
 // Settings (content-readable) and credentials (service worker and popup only) are separate items (Ruling 9);
 // every seed bumps keyStamp, as saving credentials in the popup does. Both are WXT `version: 1` items without
@@ -151,6 +168,64 @@ async function scenario(name, fn) {
   // Every scenario starts from the same browser: no tab of an earlier one keeps repainting or holding a run
   for (const page of context.pages()) if (!before.has(page)) await page.close().catch(() => {})
 }
+
+/**
+ * How the text of each element `sels` finds sits (in `host`'s shadow root, or the document): its lines, counted from
+ * the text's own line boxes; whether it is cut off, running past its box; whether its box leaves the viewport
+ */
+const layout = (page, sels, host = null) =>
+  page.evaluate(
+    ([sels, host]) => {
+      const root = host ? document.querySelector(host).shadowRoot : document
+      return sels.flatMap(sel =>
+        [...root.querySelectorAll(sel)].map(el => {
+          const rects = []
+          const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+          for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+            if (!n.data.trim()) continue
+            const range = document.createRange()
+            range.selectNodeContents(n)
+            rects.push(...[...range.getClientRects()].filter(r => r.width > 0))
+          }
+          rects.sort((a, b) => a.top - b.top)
+          let lines = 0
+          let bottom = Number.NEGATIVE_INFINITY
+          for (const r of rects) {
+            if (r.top >= bottom - 1) lines++
+            bottom = Math.max(bottom, r.bottom)
+          }
+          const b = el.getBoundingClientRect()
+          // Sideways only: a tight line height (the guide's heading) lets glyphs rise above their box, uncut
+          const cut = rects.some(r => r.left < b.left - 0.5 || r.right > b.right + 0.5)
+          return { sel, text: el.textContent.trim(), lines, cut, outside: b.left < 0 || b.top < 0 || b.right > innerWidth + 0.5 || b.bottom > innerHeight + 0.5 }
+        }),
+      )
+    },
+    [sels, host],
+  )
+/** Fails unless every element's text is on one line, whole, and on screen */
+async function fits(page, sels, host) {
+  const faults = (await layout(page, sels, host)).filter(e => e.lines !== 1 || e.cut || e.outside)
+  assert.deepEqual(faults, [], 'text that wraps, is cut off or leaves the screen')
+}
+/** Fails if the page scrolls sideways */
+async function noSidewaysScroll(page) {
+  const { scroll, width } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: innerWidth }))
+  assert.ok(scroll <= width, `the page is ${scroll} px wide in a ${width} px viewport`)
+}
+
+await scenario('the manifest takes its name and description from the English and Chinese locales', async () => {
+  const manifest = JSON.parse(readFileSync(join(EXT, 'manifest.json'), 'utf8'))
+  assert.deepEqual([manifest.default_locale, manifest.name, manifest.description], ['en', '__MSG_name__', '__MSG_description__'])
+  const messages = Object.fromEntries(['en', 'zh_CN'].map(dir => [dir, JSON.parse(readFileSync(join(EXT, '_locales', dir, 'messages.json'), 'utf8'))]))
+  assert.deepEqual([messages.en.name.message, messages.zh_CN.name.message], ['JevPaper', 'JevPaper'])
+  assert.equal(messages.zh_CN.description.message, '打开 arXiv 论文，重点自动标出来。')
+  // Chrome loaded the extension and resolved the messages, in whichever language this browser runs
+  const self = await worker.evaluate(() => chrome.management.getSelf())
+  assert.equal(self.name, 'JevPaper')
+  assert.ok([messages.en.description.message, messages.zh_CN.description.message].includes(self.description), `description: ${self.description}`)
+  notes.push(`manifest: Chrome shows the description "${self.description}"`)
+})
 
 await scenario('bands appear; a reload and a second tab ask Jev nothing more', async () => {
   await seed({})
@@ -585,7 +660,146 @@ await scenario('popup: a refused key says how to fix it', async () => {
   assert.equal(await page.getAttribute('#jp-key', 'aria-invalid'), 'true')
   assert.equal(await page.getAttribute('#jp-key', 'aria-describedby'), 'jp-error')
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'jp-key', 'focus returns to the key field')
+  assert.equal(await page.evaluate(() => document.documentElement.lang), 'zh-CN')
   jev.state.mode = 'ok'
+})
+
+// English: a second browser, its UI language English, on a new profile (no key, no cache, no settings). Screenshots
+// at 2× for a reader to look at: test-results/e2e/en-*.png.
+await context.close()
+await launch('en-US', { deviceScaleFactor: 2 })
+
+await scenario('English: bands, the bubble, the menu and a claim tip, in English and fitting', async () => {
+  await seed({ bubbleSeen: false })
+  const page = await open('1706.03762')
+  assert.ok((await bands(page, 'claim')) > 0 && (await bands(page, 'evidence')) > 0, 'claims and their evidence are painted')
+  const ui = page.locator('jevpaper-ui')
+  assert.equal(await ui.getAttribute('lang'), 'en')
+  const self = await worker.evaluate(() => chrome.management.getSelf())
+  notes.push(`manifest in the English browser: Chrome shows the description "${self.description}" (on macOS Chrome keeps the system's language)`)
+  const { width: vw, height: vh } = page.viewportSize()
+  await showAbstract(page)
+  // The first-run bubble
+  await ui.locator('.bubble').waitFor()
+  assert.equal(await ui.locator('.bubble').textContent(), 'Click here to choose what to mark')
+  await fits(page, ['.bubble'], 'jevpaper-ui')
+  await page.screenshot({ path: join(SHOTS, 'en-bubble.png'), clip: { x: vw - 480, y: vh - 140, width: 480, height: 140 } })
+  // Menu 1a grows to fit its rows
+  assert.equal(await ui.locator('.fab').getAttribute('aria-label'), 'JevPaper: choose what to mark')
+  await ui.locator('.fab').click()
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('jevpaper-ui').shadowRoot.querySelector('#jp-menu')).opacity === '1')
+  assert.equal(await ui.locator('#jp-menu').getAttribute('aria-label'), 'What to mark')
+  assert.deepEqual(await ui.locator('.row').allTextContents(), ['Claims & evidence', 'Assumptions & limits', 'More candidates'])
+  await fits(page, ['.row'], 'jevpaper-ui')
+  const [menuBox] = await layout(page, ['#jp-menu'], 'jevpaper-ui')
+  assert.ok(!menuBox.cut && !menuBox.outside, `the menu is cut off or off screen: ${JSON.stringify(menuBox)}`)
+  const menu = await ui.locator('#jp-menu').boundingBox()
+  await page.screenshot({ path: join(SHOTS, 'en-menu.png'), clip: { x: menu.x - 32, y: menu.y - 24, width: vw - menu.x + 32, height: vh - menu.y + 24 } })
+  await page.screenshot({ path: join(SHOTS, 'en-page.png') })
+  await page.keyboard.press('Escape')
+  // A claim's tip, and the keyboard's name for it
+  const claim = await page.evaluate(sel => {
+    const b = document.querySelector(`${sel}[data-tone="claim"]`).getBoundingClientRect()
+    return { x: b.left + 40, y: b.top + b.height / 2 }
+  }, BANDS)
+  await page.mouse.move(claim.x, claim.y)
+  const tip = ui.locator('.tip')
+  await tip.waitFor()
+  assert.match(await tip.textContent(), /^Claim \d+ · Method · Click to see its evidence$/)
+  await fits(page, ['.tip'], 'jevpaper-ui')
+  const box = await tip.boundingBox()
+  const x = Math.max(0, box.x - 60)
+  await page.screenshot({ path: join(SHOTS, 'en-claim-tip.png'), clip: { x, y: box.y - 20, width: Math.min(vw - x, box.width + 480), height: box.height + 120 } })
+  assert.equal(await page.locator('jevpaper-anchors .anchor').first().getAttribute('aria-label'), 'Claim 1: jump to its evidence')
+})
+
+await scenario('English: the popup on first open, and a refused key', async () => {
+  await worker.evaluate(() => chrome.storage.local.clear())
+  jev.state.mode = '401'
+  try {
+    const page = await context.newPage()
+    // The toolbar popup's own width: 300 px of content and 16 px of padding a side (src/entrypoints/popup/popup.css)
+    await page.setViewportSize({ width: 332, height: 520 })
+    await page.goto(`chrome-extension://${extensionId}/popup.html`)
+    await page.locator('#jp-key').waitFor()
+    assert.equal(await page.evaluate(() => document.documentElement.lang), 'en')
+    assert.equal(await page.textContent('.hint a'), 'Get a key from OpenRouter ↗')
+    assert.equal(await page.textContent('button[type="submit"]'), 'Get started')
+    await fits(page, ['.seg-item', 'label[for]', '.hint a', '.hint span', 'button[type="submit"]'])
+    await noSidewaysScroll(page)
+    await page.screenshot({ path: join(SHOTS, 'en-popup-setup.png'), fullPage: true })
+    await page.locator('input[value="custom"]').check({ force: true })
+    await page.fill('#jp-endpoint', jev.url)
+    await page.fill('#jp-model', 'jev')
+    await page.fill('#jp-key', 'bad')
+    await page.click('button[type="submit"]')
+    await page.locator('#jp-error').waitFor()
+    assert.equal(await page.textContent('#jp-error'), 'This key is invalid. Check that you copied all of it, or create a new one')
+    await fits(page, ['.seg-item', 'label[for]', 'button[type="submit"]'])
+    await noSidewaysScroll(page)
+    await page.screenshot({ path: join(SHOTS, 'en-popup-error.png'), fullPage: true })
+  } finally {
+    jev.state.mode = 'ok'
+  }
+})
+
+await scenario('English: the popup with a key, and the guide', async () => {
+  await seed({})
+  const page = await context.newPage()
+  await page.setViewportSize({ width: 332, height: 400 })
+  await page.goto(`chrome-extension://${extensionId}/popup.html`)
+  await page.locator('.status .dot').waitFor()
+  assert.deepEqual(await page.locator('.row').allTextContents(), ['Claims & evidence', 'Assumptions & limits', 'More candidates'])
+  // Opened as a tab, the tab in front is the popup itself, not a paper
+  assert.equal(await page.textContent('.status'), 'Open any arXiv paper’s HTML page to start')
+  assert.deepEqual(await page.locator('button.link').allTextContents(), ['Change', 'Show guide'])
+  await fits(page, ['.row', '.status', '.account', 'button.link'])
+  await noSidewaysScroll(page)
+  await page.screenshot({ path: join(SHOTS, 'en-popup-off-paper.png'), fullPage: true })
+  // The toolbar popup asks the tab in front for its status. Opened as a tab it would ask itself, so the paper tab's
+  // answer is stood in for: a count, and the longest error, whose line may wrap under its dot
+  const withStatus = async (status, shot) => {
+    const popup = await context.newPage()
+    await popup.setViewportSize({ width: 332, height: 400 })
+    await popup.addInitScript(s => {
+      chrome.tabs.query = async () => [{ id: 1 }]
+      chrome.tabs.sendMessage = async () => s
+    }, status)
+    await popup.goto(`chrome-extension://${extensionId}/popup.html`)
+    await popup.locator('.status .dot').waitFor()
+    await noSidewaysScroll(popup)
+    await popup.screenshot({ path: join(SHOTS, shot), fullPage: true })
+    return popup
+  }
+  const marked = await withStatus({ state: 'done', marks: 12 }, 'en-popup.png')
+  assert.equal(await marked.textContent('.status'), '12 marks on this page')
+  await fits(marked, ['.status'])
+  const failed = await withStatus({ state: 'error', error: 'offline' }, 'en-popup-status-error.png')
+  assert.equal(await failed.textContent('.status'), 'Can’t reach the service. Check your network, then click here to try again')
+  // A status that wraps keeps its dot round and beside its first line
+  const dot = await failed.evaluate(() => {
+    const status = document.querySelector('.status')
+    const range = document.createRange()
+    range.selectNodeContents(status.lastChild)
+    const first = range.getClientRects()[0]
+    const d = status.querySelector('.dot').getBoundingClientRect()
+    return { width: d.width, height: d.height, offset: d.top + d.height / 2 - (first.top + first.height / 2), lines: new Set([...range.getClientRects()].map(r => Math.round(r.top))).size }
+  })
+  assert.ok(dot.width === 7 && dot.height === 7 && Math.abs(dot.offset) <= 1.5, `the status dot: ${JSON.stringify(dot)}`)
+
+  const guide = await context.newPage()
+  await guide.setViewportSize({ width: 760, height: 900 })
+  await guide.goto(`chrome-extension://${extensionId}/guide.html`)
+  await guide.locator('a.primary').waitFor()
+  // The staged entrance is over 700 ms in
+  await guide.waitForFunction(() => document.getAnimations().every(a => a.playState === 'finished'))
+  assert.equal(await guide.evaluate(() => document.documentElement.lang), 'en')
+  assert.equal(await guide.title(), 'JevPaper is ready')
+  assert.equal(await guide.textContent('h1'), 'JevPaper is ready')
+  assert.equal(await guide.textContent('a.primary'), 'Try it: Attention Is All You Need')
+  await fits(guide, ['h1', 'h2', '.legend strong', 'a.primary'])
+  await noSidewaysScroll(guide)
+  await guide.screenshot({ path: join(SHOTS, 'en-guide.png'), fullPage: true })
 })
 
 await context.close()
