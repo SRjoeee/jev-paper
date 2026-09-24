@@ -17,8 +17,10 @@ export default defineConfig({
         },
       },
     },
-    // eval/*.test.ts are skipped unless JEV_KEY and the experiment's data are present (Task 15)
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'eval/**/*.test.ts'],
+    // eval/**/*.test.ts (the live regression gate) is collected only under `pnpm eval:regress`, which sets
+    // JEV_REGRESS=1 — never under plain `pnpm test`, so a developer with JEV_KEY exported never pays for it by
+    // accident. The offline scorer/mapper tests live under tests/eval/ and are always collected. (Task 15)
+    include: process.env.JEV_REGRESS === '1' ? ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'eval/**/*.test.ts'] : ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     passWithNoTests: true,
     testTimeout: 30_000,
     // Remote fixtures are downloaded and verified once, before the first test file

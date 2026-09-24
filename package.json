@@ -18,7 +18,7 @@
     "fixtures:fetch": "node scripts/fetch-fixtures.mjs",
     "icons": "node scripts/icons.mjs",
     "e2e": "pnpm build:e2e && node tests/e2e/run.mjs",
-    "eval:regress": "vitest run eval/regress.test.ts"
+    "eval:regress": "JEV_REGRESS=1 vitest run eval/regress.test.ts"
   },
   "dependencies": {
     "dexie": "^4.4.5",
